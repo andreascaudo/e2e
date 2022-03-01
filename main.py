@@ -1,2 +1,2 @@
 import astropy
-from data import sim_parameters
+from acquisition import sed
