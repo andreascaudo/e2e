@@ -1,13 +1,20 @@
+from distutils.fancy_getopt import OptionDummy
+
+from ..spectrograph import Spectrograph
+from ..acquisition import Acquisition
 from .output import Output
 
 
 class Configuration:
-    output: Output
-    #instrument: Instrument
-    #acquisition: Acquisition
-
-    def __init__(self, output):
-        self.output = output
-
-    def get_configuration(self):
-        return self.output
+    def __init__(
+        self,
+        output: Output,
+        acquisition: Acquisition,
+        spectrograph: Spectrograph,
+        # telescope
+        parameters: dict
+    ):
+        self.output = output,
+        self.acquisition = acquisition
+        self.spectrograph = spectrograph
+        self.parameters = parameters

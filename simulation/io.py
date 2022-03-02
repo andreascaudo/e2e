@@ -1,38 +1,34 @@
-# This File should be moved outside the folder simulation and into "io" subpackages where output object is specified
-# (or not really it could be the the IO of simulation)
-
-import typing as t
 import yaml
 
 from .output import Output
+from ..acquisition import Acquisition
+from ..spectrograph import Spectrograph
 from .config import Configuration
-
-#from .instrument import spectograph
-#from .acquisition import sed
 
 
 def to_output(dct: dict):
     return Output(**dct)
 
 
-'''
-def to_instrument():
-    # TBW
-    # create class containing instrument specification
-    # Class instrument - SubClass Spectograph
+def to_acquisition(dct: dict):
+    return Acquisition(**dct)
 
 
-def to_acquisition():
-    # TBW
-    # create class containing sed & sky specification
-'''
+def to_spectrograph(dct: dict):
+    return Spectrograph(**dct)
 
 
 def build_config(configuration_file: dict):
     output_obj = to_output(configuration_file["output"])
+    acquisition_obj = to_acquisition(configuration_file["acquisition"])
+    spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
+    parameters_dict = configuration_file["simulation"]
 
     config = Configuration(
-        output=output_obj
+        output=output_obj,
+        acquisition=acquisition_obj,
+        spectrograph=spectrograph_obj,
+        parameters=parameters_dict
     )
 
     return config
