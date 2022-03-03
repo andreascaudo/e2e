@@ -5,6 +5,9 @@ class Spectrograph:
         arm: str,                       # Spectrograph Arm
         type: str,                      # Spectrograph Type
 
+        optical_wavelength_file: str,
+        optical_rtc_psf_map_file: str,
+
         # Common Path f numbers (Pre-Slit unit)
 
         common_path_f_in: float,        # [-]
@@ -47,6 +50,10 @@ class Spectrograph:
         self.name = name
         self.arm = arm
         self.type = type
+
+        self.optical_wavelength_file = optical_wavelength_file
+        self.optical_rtc_psf_map_file = optical_rtc_psf_map_file
+
         self.cp_f_in = common_path_f_in
         self.cp_f_out = common_path_f_out
         self.n_slice = n_slice
