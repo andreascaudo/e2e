@@ -1,14 +1,12 @@
 class Output:
     def __init__(
-
         self,
         output_folder: str,                 # Folder Output
         paraxial_model: bool = None,
         drs: bool = None
-
     ) -> None:
-
         self.output_folder = output_folder
+
         if paraxial_model == None:
             self.paraxial_model = False
         else:

@@ -24,7 +24,6 @@ def to_spectrograph(dct: dict):
 
 
 def build_config(configuration_file: dict) -> Configuration:
-
     # Dictionary -> Object of specific Class
     output_obj = to_output(configuration_file["output"])
     acquisition_obj = to_acquisition(configuration_file["acquisition"])

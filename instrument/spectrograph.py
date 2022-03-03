@@ -46,7 +46,6 @@ class Spectrograph:
         resolving_power: float          # [-]
 
     ) -> None:
-
         self.name = name
         self.arm = arm
         self.type = type
