@@ -51,3 +51,5 @@ docs/_build/
 
 #E2E library test
 test.py
+
+.DS_Store
