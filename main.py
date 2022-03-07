@@ -9,4 +9,6 @@ def run(configuration: Configuration):
     spectrograph = configuration.spectrograph
 
     # First step: generate flux
-    flux = acquisition.sed.get_flux()
+    flux = acquisition.sed.get_flux(spectrograph.wavelength_band)
+    print(len(flux))
+    print(len(spectrograph.wavelength_band))

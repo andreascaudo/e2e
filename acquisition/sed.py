@@ -1,3 +1,4 @@
+import numpy as np
 from scipy import constants
 from ..instrument import spectrograph
 
@@ -25,10 +26,11 @@ class Blackbody(Sed):
         super().__init__(sed_type, magnitude, magnitude_system)
         self.temperature = temperature
 
-    def get_flux(self):
-        print("BLACK BODY FLUX")
-        # return 8 * constants.pi * constants.h * constants.c ** 2 / ((source / 10 ** 10) ** 5 * (
-        #    np.exp(constants.h * constants.c / (constants.k * temperature * (source / 10 ** 10))) - 1))  # J/(s * m2 * m) or W / m^2 * m
+    def get_flux(self, wavelength_band):
+        # save wavelength band?
+        # translate list in array
+        return 8 * constants.pi * constants.h * constants.c ** 2 / ((wavelength_band / 10 ** 10) ** 5 * (
+            np.exp(constants.h * constants.c / (constants.k * self.temperature * (wavelength_band / 10 ** 10))) - 1))  # J/(s * m2 * m) or W / m^2 * m
 
 
 class Powerlaw(Sed):
@@ -42,7 +44,7 @@ class Powerlaw(Sed):
         super().__init__(sed_type, magnitude, magnitude_system)
         self.index = index
 
-    def get_flux(self):
+    def get_flux(self, wavelength_band):
         print("POWER LAW FLUX")
 
 
@@ -57,5 +59,5 @@ class Spectrum(Sed):
         super().__init__(sed_type, magnitude, magnitude_system)
         self.spectrum_file = spectrum_file
 
-    def get_flux(self):
+    def get_flux(self, wavelength_band):
         print("SPECTRUM FLUX")

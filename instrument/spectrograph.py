@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Spectrograph:
     def __init__(
         self,
@@ -81,6 +84,6 @@ class Spectrograph:
 
         self.wavelength_min = wavelength_min
         self.wavelength_max = wavelength_max
-        self.wavelength_band = [*range(wavelength_min, wavelength_max+1, 1)]
+        self.wavelength_band = np.arange(wavelength_min, wavelength_max, 1)
 
         self.resolving_power = resolving_power
