@@ -1,4 +1,12 @@
-import astropy
-from acquisition import sed
+from .simulation import Configuration
 
-print("Main")
+
+def run(configuration: Configuration):
+    # Unpack configuration
+    output = configuration.output
+    acquisition = configuration.acquisition
+    telescope = configuration.telescope
+    spectrograph = configuration.spectrograph
+
+    # First step: generate flux
+    flux = acquisition.sed.get_flux()

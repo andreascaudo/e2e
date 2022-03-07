@@ -1,5 +1,3 @@
-from distutils.fancy_getopt import OptionDummy
-
 from ..instrument import Spectrograph
 from ..instrument import Telescope
 from ..acquisition import Acquisition

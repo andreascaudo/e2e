@@ -40,8 +40,8 @@ class Spectrograph:
         n_pixels: int,                  # [-]
         dimension_pixel: float,         # [um]
 
-        wavelength_min: float,          # [um]
-        wavelength_max: float,          # [um]
+        wavelength_min: float,          # [A]
+        wavelength_max: float,          # [A]
 
         resolving_power: float          # [-]
 
@@ -81,5 +81,6 @@ class Spectrograph:
 
         self.wavelength_min = wavelength_min
         self.wavelength_max = wavelength_max
+        self.wavelength_band = [*range(wavelength_min, wavelength_max+1, 1)]
 
         self.resolving_power = resolving_power
