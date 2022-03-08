@@ -1,4 +1,7 @@
 from .simulation import Configuration
+import matplotlib.pyplot as plt
+from scipy import constants
+import numpy as np
 
 
 def run(configuration: Configuration):
@@ -9,6 +12,7 @@ def run(configuration: Configuration):
     spectrograph = configuration.spectrograph
 
     # First step: generate flux
-    flux = acquisition.sed.get_flux(spectrograph.wavelength_band)
-    print(len(flux))
-    print(len(spectrograph.wavelength_band))
+    wavelength, flux = acquisition.sed.get_flux(spectrograph.wavelength_band)
+
+    plt.plot(wavelength, flux)
+    plt.show()
