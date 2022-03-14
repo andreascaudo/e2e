@@ -10,12 +10,14 @@ def run(configuration: Configuration):
 
     # First step: generate flux
     #Angstrom, Ph/s/cm^2/A
-    wavelength, flux = acquisition.sed.get_flux()
+    sed_wavelength, sed_flux = acquisition.sed.get_flux()
 
-    plt("SED", wavelength, flux, [
+    plt("SED", sed_wavelength, sed_flux, [
         "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
-    wavelength, flux = acquisition.sed.normalize()
+    sed_wavelength, sed_flux = acquisition.sed.normalize()
 
-    plt("SED Normalized", wavelength, flux, [
+    plt("SED Normalized", sed_wavelength, sed_flux, [
         "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
+
+    sky_wavelength, sky_flux = acquisition.sky.get_sky()

@@ -1,12 +1,13 @@
 # coding=utf-8
 
 import os
+from os.path import dirname, join
 from scipy import integrate
 import numpy as np
 
 filters_folder = "filters"
-filters_folder = os.path.join(os.path.dirname(
-    os.path.realpath(__file__)), filters_folder)
+filters_folder = join(
+    dirname(dirname(os.path.realpath(__file__))), "data", filters_folder)
 
 band_filters = {}
 
