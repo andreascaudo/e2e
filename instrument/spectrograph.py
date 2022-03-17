@@ -11,6 +11,9 @@ class Spectrograph:
         optical_wavelength_file: str,
         optical_rtc_psf_map_file: str,
 
+        # Full Width Half Maximum
+        fwhm_instrument: float,
+
         # Common Path f numbers (Pre-Slit unit)
 
         common_path_f_in: float,        # [-]
@@ -55,6 +58,8 @@ class Spectrograph:
 
         self.optical_wavelength_file = optical_wavelength_file
         self.optical_rtc_psf_map_file = optical_rtc_psf_map_file
+
+        self.fwhm_instrument = fwhm_instrument
 
         self.cp_f_in = common_path_f_in
         self.cp_f_out = common_path_f_out
