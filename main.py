@@ -34,4 +34,11 @@ def run(configuration: Configuration):
     plt("FWHM Image Quality", sed_wavelength,
         fwhm_iq,  ["wavelength [$\AA$]", "[arcsec]"])
 
-    sky_wavelength, sky_flux = acquisition.sky.get_sky()
+    transimission, radiance = acquisition.sky.get_sky(
+        acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y)
+
+    plt("Sky transmission", transimission.wavelength,
+        transimission.transmission, ["wavelength [$\AA$]", "[-]"])
+
+    plt("Sky radiance", radiance.wavelength,
+        radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])

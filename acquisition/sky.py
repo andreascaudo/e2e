@@ -23,6 +23,7 @@ def write_skycalc_file(airmass, pwv, moon_sun_sep):
     template = join(dirname(dirname(realpath(__file__))),
                     "data", "sky", "skycalc", 'SkyCalc_input.txt')
 
+    # From template file, setup new input
     with open(input, 'w') as new:
         with open(template) as template:
             cnt = 1
@@ -53,14 +54,16 @@ def write_skycalc_file(airmass, pwv, moon_sun_sep):
         template.close()
     new.close()
 
+    # Call to SkyCalc -i input -o output
     system("skycalc_cli " +
            "-i '" + str(input) +
            "' -o '" + str(output) + "'")
 
-    remove(input)
+    remove(input)  # Remove input file
     return output
 
 
+# Write radiance.dat and transmission.dat files
 def write_sky_file(output, transmission_file, radiance_file):
 
     len_output = len(output)
@@ -75,7 +78,7 @@ def write_sky_file(output, transmission_file, radiance_file):
         transmission[i] = output[i][4]  # Transmission
 
     output_file_radiance = pd.DataFrame(
-        {'lambda': transmission, 'radiance': flux})
+        {'lambda': wavelength, 'radiance': flux})
     output_file_transmission = pd.DataFrame(
         {'lambda': wavelength, 'transmission': transmission})
 
@@ -88,11 +91,14 @@ def write_sky_file(output, transmission_file, radiance_file):
 class Radiance:
     def __init__(
         self,
-        radiance_file: np.ndarray
+        radiance_file: np.ndarray,
+        slit_dimension: list
     ) -> None:
         self.wavelength = unit_converter.wavelength(
-            radiance_file[0], "nm", "A")  # [nm] -> [A]
-        self.flux = radiance_file[1]
+            radiance_file.T[0], "nm", "A")  # [nm] -> [A]
+
+        self.flux = unit_converter.flux(
+            radiance_file.T[1], "photons/m^2/s/µm/asec^2", "photons/cm^2/s/A", slit_dimension)  # [Ph/s/m2/µm/asec2] -> [Ph/s/cm2/A]
 
 
 class Transimission:
@@ -101,8 +107,8 @@ class Transimission:
         transmission_file: np.ndarray
     ) -> None:
         self.wavelength = unit_converter.wavelength(
-            transmission_file[0], "nm", "A")  # [nm] -> [A]
-        self.transmission = transmission_file[1]  # [-]
+            transmission_file.T[0], "nm", "A")  # [nm] -> [A]
+        self.transmission = transmission_file.T[1]  # [-]
 
 
 class Sky:
@@ -119,7 +125,7 @@ class Sky:
         self.seeing = seeing
         # Load spectrum
 
-    def get_sky(self):
+    def get_sky(self, slit_x, slit_y):
         transmission_filename = "Sky_tra_MFLI_" + \
             str(int(self.moon_fli)) + "_Airm_" + \
             str(self.airmass) + "_PWV_" + str(self.pwv) + ".dat"  # float ???
@@ -137,14 +143,15 @@ class Sky:
         print(transmission_file)
         print(radiance_file)
 
-        if transmission_file.is_file() and radiance_file.is_file():
-            transmission = Transimission(np.loadtxt(transmission_file))
-            radiance = Radiance(np.loadtxt(radiance_file))
-        else:
+        # If files do not exist -> call skycal
+        if not (transmission_file.is_file() and radiance_file.is_file()):
             output = write_skycalc_file(str(self.airmass), str(self.pwv), str(
                 int(self.moon_fli * (180 / 1))))
             output_skycalc = Table.read(output)
             remove(output)
             write_sky_file(output_skycalc, transmission_file, radiance_file)
 
-        return transmission_file, radiance_file
+        transmission = Transimission(np.loadtxt(transmission_file))
+        radiance = Radiance(np.loadtxt(radiance_file), [slit_x, slit_y])
+
+        return transmission, radiance

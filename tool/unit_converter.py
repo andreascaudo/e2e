@@ -2,7 +2,7 @@
 from scipy import constants
 
 FLUX_UNIT_OF_MEASURE = ["Jy", "photons/cm^2/s/KeV", "photons/cm^2/s/A",
-                        "ergs/cm^2/s/A", "ergs/cm^2/s/Hz", "W/m^2/um", "J/(s * m^3)", "W/m^3"]
+                        "ergs/cm^2/s/A", "ergs/cm^2/s/Hz", "W/m^2/um", "J/(s * m^3)", "photons/m^2/s/µm/asec^2"]
 
 WAVELENGTH_UNIT_OF_MEASURE = ["um", "nm", "A"]
 
@@ -187,6 +187,17 @@ def flux(flux, frm, to, E_LL=[]):
             else:
                 raise Exception(
                     "ERROR: FROM W/m^2/um TO photons/cm^2/s/A -> Wavelength in um needed, pass as -> flux_converter(flux, from, to, LL) / LL in um!!")
+
+    # FROM photons/m^2/s/µm/asec^2
+    if(frm == FLUX_UNIT_OF_MEASURE[7]):
+        # TO photons/cm^2/s/A
+        if(to == FLUX_UNIT_OF_MEASURE[2]):
+            if(E_LL != []):  # [0] -> Slit_x , [1] -> Slit_y
+                # [phot/s/cm2/A]
+                return flux * (E_LL[0] * E_LL[1]) / (10000 * 10000)
+            else:
+                raise Exception(
+                    "ERROR: FROM photons/m^2/s/µm/asec^2 TO photons/cm^2/s/A -> [0] -> Slit_x , [1] -> FWHM_iq , [2] -> PSF_extension")
 
 
 def wavelength(wavelength, frm, to):
