@@ -25,13 +25,13 @@ def run(configuration: Configuration):
         "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
     # Get Slit Efficiency and Image Quality
-    slit_efficiency, fwhm_iq = efficiency.get_slit_efficiency(sed_wavelength, acquisition.sky.airmass,
+    slit_efficiency, fwhm_iq = efficiency.get_slit_efficiency(spectrograph.wavelength_band, acquisition.sky.airmass,
                                                               acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
-                                                              acquisition.sky.seeing, spectrograph.fwhm_instrument, telescope.diameter, telescope.l_zero)
+                                                              acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
 
-    plt("Slit efficiecny", sed_wavelength,
+    plt("Slit efficiecny", spectrograph.wavelength_band,
         slit_efficiency, ["wavelength [$\AA$]", "[-]"])
-    plt("FWHM Image Quality", sed_wavelength,
+    plt("FWHM Image Quality", spectrograph.wavelength_band,
         fwhm_iq,  ["wavelength [$\AA$]", "[arcsec]"])
 
     transimission, radiance = acquisition.sky.get_sky(
