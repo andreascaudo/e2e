@@ -10,6 +10,7 @@ class Spectrograph:
 
         optical_wavelength_file: str,
         optical_rtc_psf_map_file: str,
+        orders_table_file: str,
 
         # Full Width Half Maximum
         fwhm_instrument: float,
@@ -58,6 +59,12 @@ class Spectrograph:
 
         self.optical_wavelength_file = optical_wavelength_file
         self.optical_rtc_psf_map_file = optical_rtc_psf_map_file
+        self.orders_table_file = orders_table_file
+        try:
+            self.order_table = np.loadtxt(
+                self.orders_table_file, delimiter=" ", skiprows=1)
+        except Exception as e:
+            print(e)
 
         self.fwhm_instrument = fwhm_instrument
 

@@ -12,8 +12,8 @@ def run(configuration: Configuration):
 
     # TBI: Implement a function TO CHECK if acquisition reflects the spectrograph parameters
 
-    # First step: generate flux
-    # Angstrom, Ph/s/cm^2/A
+    # 1st step: generate flux
+    # [Angstrom], [Ph/s/cm^2/A]
     sed_wavelength, sed_flux = acquisition.sed.get_flux()
 
     plt("SED", sed_wavelength, sed_flux, [
@@ -24,7 +24,18 @@ def run(configuration: Configuration):
     plt("SED Normalized", sed_wavelength, sed_flux, [
         "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
-    # Get Slit Efficiency and Image Quality
+    # 2nd step: get sky radiance and transission
+    # [-] ,[ph/s/cm2/A]
+    transimission, radiance = acquisition.sky.get_sky(
+        acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y)
+
+    plt("Sky transmission", transimission.wavelength,
+        transimission.transmission, ["wavelength [$\AA$]", "[-]"])
+
+    plt("Sky radiance", radiance.wavelength,
+        radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
+
+    # 3th step: Get Slit Efficiency and Image Quality
     slit_efficiency, fwhm_iq = efficiency.get_slit_efficiency(spectrograph.wavelength_band, acquisition.sky.airmass,
                                                               acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
                                                               acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
@@ -34,11 +45,4 @@ def run(configuration: Configuration):
     plt("FWHM Image Quality", spectrograph.wavelength_band,
         fwhm_iq,  ["wavelength [$\AA$]", "[arcsec]"])
 
-    transimission, radiance = acquisition.sky.get_sky(
-        acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y)
-
-    plt("Sky transmission", transimission.wavelength,
-        transimission.transmission, ["wavelength [$\AA$]", "[-]"])
-
-    plt("Sky radiance", radiance.wavelength,
-        radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
+    # 4th step: Get Instrument-Spectrograph Efficiency
