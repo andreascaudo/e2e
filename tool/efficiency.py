@@ -4,12 +4,14 @@ import math
 from mpmath import asec
 import numpy as np
 
+from ..tool import tools
+
 wl_seeing = np.arange(1000, 25000, 250)
 
 # wl_seeing:angstrom, Slit_*:arcsec, Angstrom, ref_wl:angstrom (usually 5000 A) with seeing (ref_seeing), Telescope D in meters, Lzero:  wave-front outer-scale in meters
 
 
-def get_slit_efficiency(wavelength, airmass, slit_width, slit_length, ref_seeing, fwhm_ins, tel_diameter, l_zero, index=-1./5, ref_wl=5000):
+def get_slit_efficiency(wavelength_matrix, airmass, slit_width, slit_length, ref_seeing, fwhm_ins, tel_diameter, l_zero, index=-1./5, ref_wl=5000):
     seeing_lambda_vector = []
     fwhm_iq = []
     fwhm_iq_total = []
@@ -31,12 +33,19 @@ def get_slit_efficiency(wavelength, airmass, slit_width, slit_length, ref_seeing
         fwhm_iq_total = fwhm_iq_total + [total_FWHM_ins]
         seeing_lambda_vector = seeing_lambda_vector + [seeing_lambda]
 
-    # Interpolare for wavelength range
-    seeing_lambda_vector = np.interp(
-        wavelength, wl_seeing, seeing_lambda_vector)
-    fwhm_iq_total = np.interp(wavelength, wl_seeing, fwhm_iq_total)
+    # Interpolare for wavelength matrix
 
-    return seeing_lambda_vector, fwhm_iq_total
+    size_matrix = wavelength_matrix.shape
+    seeing_lambda_vector_matrix = np.zeros(size_matrix)
+    fwhm_iq_total_matrix = np.zeros(size_matrix)
+
+    for i in range(0, size_matrix[0]):
+        seeing_lambda_vector_matrix[i] = tools.interp(
+            wl_seeing, seeing_lambda_vector, wavelength_matrix[i], fill_value="extrapolate")
+        fwhm_iq_total_matrix[i] = tools.interp(
+            wl_seeing, fwhm_iq_total, wavelength_matrix[i], fill_value="extrapolate")
+
+    return seeing_lambda_vector_matrix, fwhm_iq_total_matrix
 
 
 def get_pinhole_efficiency(wl_seeing, airmass, d_pinhole, ref_wl, ref_seeing, tel_diameter, l_zero, index):

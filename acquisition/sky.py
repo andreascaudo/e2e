@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 from astropy.table import Table
 
+import matplotlib.pyplot as plt
+
 from ..tool import unit_converter
+from ..tool import tools
 
 transmission_folder = "transmission"
 radiance_folder = "radiance"
@@ -151,7 +154,18 @@ class Sky:
             remove(output)
             write_sky_file(output_skycalc, transmission_file, radiance_file)
 
-        transmission = Transimission(np.loadtxt(transmission_file))
-        radiance = Radiance(np.loadtxt(radiance_file), [slit_x, slit_y])
+        self.transmission = Transimission(np.loadtxt(transmission_file))
+        self.radiance = Radiance(np.loadtxt(radiance_file), [slit_x, slit_y])
 
-        return transmission, radiance
+        return self.transmission, self.radiance
+
+    def set_efficiency(self, wavematrix, efficiency):
+        self.wavelength_matrix = wavematrix
+        size_matrix = self.wavelength_matrix.shape
+        self.transmission.transmission_matrix = np.zeros(size_matrix)
+
+        for i in range(0, size_matrix[0]):
+            self.transmission.transmission_matrix[i] = tools.interp(
+                self.transmission.wavelength, self.transmission.transmission, self.wavelength_matrix[i], fill_value="extrapolate")
+
+        self.sky_efficiency_matrix = efficiency

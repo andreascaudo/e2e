@@ -35,14 +35,26 @@ def run(configuration: Configuration):
     plt("Sky radiance", radiance.wavelength,
         radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
 
-    # 3th step: Get Slit Efficiency and Image Quality
-    slit_efficiency, fwhm_iq = efficiency.get_slit_efficiency(spectrograph.wavelength_band, acquisition.sky.airmass,
-                                                              acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
-                                                              acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
+    # 3th step: Set Sky and Obj Efficiency
 
-    plt("Slit efficiecny", spectrograph.wavelength_band,
-        slit_efficiency, ["wavelength [$\AA$]", "[-]"])
-    plt("FWHM Image Quality", spectrograph.wavelength_band,
-        fwhm_iq,  ["wavelength [$\AA$]", "[arcsec]"])
+    acquisition.sky.set_efficiency(spectrograph.wavematrix,
+                                   spectrograph.telescope_spectrograph_efficiency_fdr)
+    acquisition.sed.set_efficiency(acquisition.sky.transmission.transmission_matrix,
+                                   spectrograph.wavematrix, spectrograph.telescope_spectrograph_efficiency_fdr)
 
-    # 4th step: Get Instrument-Spectrograph Efficiency
+    # 4th step: Get Slit Efficiency and Image Quality
+    slit_efficiency_matrix, fwhm_iq_matrix = efficiency.get_slit_efficiency(spectrograph.wavematrix, acquisition.sky.airmass,
+                                                                            acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
+                                                                            acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
+
+    for len_i in range(0, 16):
+        plt("Slit efficiency", spectrograph.wavematrix,
+            slit_efficiency_matrix, ["wavelength [$\AA$]", "[-]"])
+
+    plt.show()
+
+    for len_i in range(0, 16):
+        plt("Image Quality", spectrograph.wavematrix,
+            fwhm_iq_matrix, ["wavelength [$\AA$]", "[arcsec]"])
+
+    plt.show()

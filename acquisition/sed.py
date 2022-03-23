@@ -40,6 +40,10 @@ class Sed:
 
         return self.wavelength, self.flux
 
+    def set_efficiency(self, transmission_matrix, wavematrix, efficiency):
+        self.wavelength_matrix = wavematrix
+        self.sed_total_efficincy = transmission_matrix * efficiency
+
 
 class Blackbody(Sed):
     def __init__(
