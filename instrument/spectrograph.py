@@ -1,3 +1,4 @@
+from re import sub
 import numpy as np
 import scipy.io
 import math
@@ -122,8 +123,6 @@ class Spectrograph:
         self.qe_detector_file = load_fdr(qe_detector_file)
         self.psf_map_file = load_fdr(psf_map_file)
 
-        print(self.psf_map_file["PSFmap_Struct"][0][0][1])
-
         self.fwhm_instrument = fwhm_instrument
 
         self.cp_f_in = common_path_f_in
@@ -157,8 +156,7 @@ class Spectrograph:
             index_start = np.where(self.commonpath_vis_fdr_file == wavetemp)[0]
             index_end = np.where(self.commonpath_vis_fdr_file == 849)[0]
             # Extrap of data from UV-VIS
-            CPVISnofilt_2_800 = self.commonpath_vis_fdr_file[index_start[0]
-                :index_end[0]+1].T[1]
+            CPVISnofilt_2_800 = self.commonpath_vis_fdr_file[index_start[0]:index_end[0]+1].T[1]
             CPNIRnofilt_2_800 = 1 - (CPVISnofilt_2_800/100)
             # Re definition of CPIR_fdr
             vect_800_849 = np.arange((wavetemp/1000), 0.850, 0.001)
@@ -244,6 +242,12 @@ class Spectrograph:
         self.wavelength_band = np.arange(wavelength_min, wavelength_max, 1)
 
         self.resolving_power = resolving_power
+
+    def set_subpixels(self, pixel_oversampling):
+        self.n_pixels_sub = self.n_pixels * pixel_oversampling
+        self.subpixel_edge = pixel_oversampling * 2
+        self.detector_subpixel = np.zeros(
+            (310*pixel_oversampling, self.n_pixels_sub + self.subpixel_edge, self.len_n_orders))
 
 
 def cut_spurius_efficiency(b, len_n_orders):
