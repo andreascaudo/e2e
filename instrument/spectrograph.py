@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.io
 import math
 
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ class Spectrograph:
         self,
         name: str,                      # Spectrograph Name
         arm: str,                       # Spectrograph Arm
-        type: str,                      # Spectrograph Type
+        grating_type: str,                      # Grating Type
 
         optical_wavelength_file: str,
         optical_rtc_psf_map_file: str,
@@ -71,13 +72,14 @@ class Spectrograph:
         cross_disperser_fdr_file: str,
         fold_mirror_fdr_file: str,
         camera_fdr_file: str,
-        qe_detector_file: str
+        qe_detector_file: str,
+        psf_map_file: str
 
 
     ) -> None:
         self.name = name
         self.arm = arm
-        self.type = type
+        self.grating_type = grating_type
 
         self.optical_wavelength_file = optical_wavelength_file
         self.optical_rtc_psf_map_file = optical_rtc_psf_map_file
@@ -118,6 +120,9 @@ class Spectrograph:
         self.fold_mirror_fdr_file = load_fdr(fold_mirror_fdr_file)
         self.camera_fdr_file = load_fdr(camera_fdr_file)
         self.qe_detector_file = load_fdr(qe_detector_file)
+        self.psf_map_file = load_fdr(psf_map_file)
+
+        print(self.psf_map_file["PSFmap_Struct"][0][0][1])
 
         self.fwhm_instrument = fwhm_instrument
 
@@ -143,7 +148,7 @@ class Spectrograph:
         self.grating_lambda = grating_lambda
         self.grating_efficiency = grating_efficiency
 
-        if self.type == "echelle":
+        if self.grating_type == "echelle":
             self.wavematrix, self.b_phase, self.b = echelle_grating_efficiency(
                 self.line_density, self.blaze_angle, self.eps_angle, self.sx_wavelegnth_per_order, self.dx_wavelegnth_per_order, self.n_orders, self.len_n_orders, self.ilg, self.n_p)
 
@@ -152,7 +157,8 @@ class Spectrograph:
             index_start = np.where(self.commonpath_vis_fdr_file == wavetemp)[0]
             index_end = np.where(self.commonpath_vis_fdr_file == 849)[0]
             # Extrap of data from UV-VIS
-            CPVISnofilt_2_800 = self.commonpath_vis_fdr_file[index_start[0]:index_end[0]+1].T[1]
+            CPVISnofilt_2_800 = self.commonpath_vis_fdr_file[index_start[0]
+                :index_end[0]+1].T[1]
             CPNIRnofilt_2_800 = 1 - (CPVISnofilt_2_800/100)
             # Re definition of CPIR_fdr
             vect_800_849 = np.arange((wavetemp/1000), 0.850, 0.001)
@@ -284,7 +290,10 @@ def echelle_grating_efficiency(line_density, blaze_angle, eps_angle, sx_wavelegn
 
 def load_fdr(file):
     try:
-        return np.loadtxt(file, delimiter=" ")
+        if file.endswith(".mat"):
+            return scipy.io.loadmat(file)
+        else:
+            return np.loadtxt(file, delimiter=" ")
     except Exception as e:
         print(e)
         raise "ERROR: " + e
