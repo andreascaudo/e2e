@@ -200,6 +200,9 @@ class Spectrograph:
                 self.qe_detector[i] = tools.interp(self.qe_detector_file.T[0], self.qe_detector_file.T[1],
                                                    self.wavematrix[i], fill_value="extrapolate", kind="nearest")
 
+            self.psf_map = np.flip(self.psf_map_file["PSFmap_Struct"][0])
+
+        '''
         for len_i in range(0, self.len_n_orders):
             plt.plot(self.wavematrix[len_i], self.b[len_i])
 
@@ -209,6 +212,7 @@ class Spectrograph:
             plt.plot(self.wavematrix[len_i], self.grating_fdr[len_i])
 
         plt.show()
+        '''
 
         self.wavematrix = unit_converter.wavelength(self.wavematrix, "um", "A")
 
@@ -243,11 +247,12 @@ class Spectrograph:
 
         self.resolving_power = resolving_power
 
-    def set_subpixels(self, pixel_oversampling):
-        self.n_pixels_sub = self.n_pixels * pixel_oversampling
-        self.subpixel_edge = pixel_oversampling * 2
+    def set_subpixels(self, pixel_oversampling, psf_map_pixel_number):
+        self.n_pixels_subpixel = self.n_pixels * pixel_oversampling
+        self.psf_map_pixel_number_subpixel = psf_map_pixel_number * pixel_oversampling
+        self.subpixel_edge = self.psf_map_pixel_number_subpixel * 2
         self.detector_subpixel = np.zeros(
-            (310*pixel_oversampling, self.n_pixels_sub + self.subpixel_edge, self.len_n_orders))
+            (310*pixel_oversampling, self.n_pixels_subpixel + self.subpixel_edge, self.len_n_orders))
 
 
 def cut_spurius_efficiency(b, len_n_orders):

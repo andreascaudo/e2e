@@ -245,6 +245,12 @@ def wavelength(wavelength, frm, to):
         if(to == WAVELENGTH_UNIT_OF_MEASURE[3]):
             return wavelength * 10**-10
 
+    # FROM m
+    if(frm == WAVELENGTH_UNIT_OF_MEASURE[3]):
+        # TO A
+        if(to == WAVELENGTH_UNIT_OF_MEASURE[2]):
+            return wavelength * 10**10
+
 
 # TEST
 '''
