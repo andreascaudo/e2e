@@ -201,9 +201,13 @@ def calculation(configuration):
         v1 = np.array([1, 500, 1000, 1500, 1700])*parameter.pixel_oversampling
         print(v1)
         for j in v1:  # in order_len_wavelength_subpix
-            object_counts = tools.integration(
+            object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
-            print(object_counts)
+
+            sky_counts[j] = tools.integration(
+                order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sky.radiance)
+
+            print(sky_counts[j])
 
     print("End Order: " + str(i))
     print("--- %s seconds ---" % (time.time() - order_time))

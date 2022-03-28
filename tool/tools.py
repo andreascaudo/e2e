@@ -8,7 +8,7 @@ def interp(x, y, new_x, fill_value, kind="linear"):
     return function(new_x)
 
 
-def integration(lam, delta_lam, sed):
+def integration(lam, delta_lam, flux):
     l1 = lam  # [m]
     l2 = lam + delta_lam  # [m]
     dl = delta_lam / 100  # [m]
@@ -18,14 +18,14 @@ def integration(lam, delta_lam, sed):
     # print(len(lam_vect))
 
     spec_flux_norm_interp = interp(unit_converter.wavelength(
-        sed.wavelength, "A", "m"), sed.flux, lam_vect, fill_value="extrapolate")  # flux in [phot/s/cm^2/ang] and lambda in [m]
+        flux.wavelength, "A", "m"), flux.flux, lam_vect, fill_value="extrapolate")  # flux in [phot/s/cm^2/ang] and lambda in [m]
 
     # E=N*h*nu -> N=E*lambda/h*c
     dl = unit_converter.wavelength(dl, "m", "A")
-    object_counts = 0
+    counts = 0
 
     for i in range(0, len(spec_flux_norm_interp)):
-        object_counts = object_counts + \
+        counts = counts + \
             spec_flux_norm_interp[i] * dl  # Nfot/(s*cm^2)
 
-    return object_counts
+    return counts
