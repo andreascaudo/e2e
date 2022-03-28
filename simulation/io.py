@@ -4,7 +4,7 @@ from .output import Output
 from ..acquisition import Acquisition
 from ..instrument import Spectrograph
 from ..instrument import Telescope
-from .config import Configuration
+from .config import Configuration, Parameter
 
 
 def to_output(dct: dict):
@@ -23,15 +23,19 @@ def to_spectrograph(dct: dict):
     return Spectrograph(**dct)
 
 
+def to_parameter(dct: dict):
+    return Parameter(**dct)
+
+
 def build_config(configuration_file: dict) -> Configuration:
     # Dictionary -> Object of specific Class
     output_obj = to_output(configuration_file["output"])
     acquisition_obj = to_acquisition(configuration_file["acquisition"])
     telescope_obj = to_telescope(configuration_file["telescope"])
     spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
+    parameter_obj = to_parameter(configuration_file["simulation"])
 
     # Dictionary -> Dictionary
-    parameters_dict = configuration_file["simulation"]
 
     # Setup Environment Configuration
     config = Configuration(
@@ -39,7 +43,7 @@ def build_config(configuration_file: dict) -> Configuration:
         acquisition=acquisition_obj,
         telescope=telescope_obj,
         spectrograph=spectrograph_obj,
-        parameters=parameters_dict
+        parameters=parameter_obj
     )
 
     return config

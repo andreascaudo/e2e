@@ -4,7 +4,7 @@ from scipy import constants
 FLUX_UNIT_OF_MEASURE = ["Jy", "photons/cm^2/s/KeV", "photons/cm^2/s/A",
                         "ergs/cm^2/s/A", "ergs/cm^2/s/Hz", "W/m^2/um", "J/(s * m^3)", "photons/m^2/s/µm/asec^2"]
 
-WAVELENGTH_UNIT_OF_MEASURE = ["um", "nm", "A"]
+WAVELENGTH_UNIT_OF_MEASURE = ["um", "nm", "A", "m"]
 
 
 def flux(flux, frm, to, E_LL=[]):
@@ -220,6 +220,9 @@ def wavelength(wavelength, frm, to):
         # TO A
         if(to == WAVELENGTH_UNIT_OF_MEASURE[2]):
             return wavelength * 10000
+        # TO m
+        if(to == WAVELENGTH_UNIT_OF_MEASURE[3]):
+            return wavelength * 10**-6
 
     # FROM nm
     if(frm == WAVELENGTH_UNIT_OF_MEASURE[1]):
@@ -238,6 +241,9 @@ def wavelength(wavelength, frm, to):
         # TO nm
         if(to == WAVELENGTH_UNIT_OF_MEASURE[1]):
             return wavelength / 10
+        # to m
+        if(to == WAVELENGTH_UNIT_OF_MEASURE[3]):
+            return wavelength * 10**-10
 
 
 # TEST
