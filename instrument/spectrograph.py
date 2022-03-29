@@ -52,8 +52,11 @@ class Spectrograph:
         # Camera f length
         f_camera: float,                # [mm]
 
+        # Detector
         n_pixels: int,                  # [-]
         dimension_pixel: float,         # [um]
+        gain: float,
+        ADU_bits: int,
 
         wavelength_min: float,          # [A]
         wavelength_max: float,          # [A]
@@ -240,6 +243,8 @@ class Spectrograph:
         '''
         self.n_pixels = n_pixels
         self.dimension_pixel = dimension_pixel
+        self.gain = gain
+        self.ADU_bits = ADU_bits
 
         self.wavelength_min = wavelength_min
         self.wavelength_max = wavelength_max
