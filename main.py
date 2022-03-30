@@ -333,23 +333,25 @@ def calculation(configuration):
             spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
                 spectrograph.subpixel_edge/2)+spectrograph.n_pixels_subpixel, t]
 
-    # Display the final detector image [Sub-pixel]
-
-    # if DEBUG:
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.imshow(detector_recombined)
-    plt.colorbar()
-    # plt.show()
-
     # Binnig to the final detector image with real size
     detector_recombined_binned = tools.rebin_image(
         detector_recombined, [parameter.pixel_oversampling, parameter.pixel_oversampling])
 
     # Display the final detector image [Binned]
+
+    # Moltilpy for telescope are to obtain [/s]
+    detector_telescope = detector_recombined_binned * \
+        ((telescope.diameter/2) ** 2) * math.pi
+
+    # Moltiply for time exposure
+    detector_final = detector_telescope * \
+        acquisition.characteristics.detector_integration_time
+
     import matplotlib.pyplot as plt
     plt.figure()
-    plt.imshow(detector_recombined_binned)
+    plt.imshow(detector_final)
+    plt.title('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
+              str(acquisition.characteristics.detector_integration_time) + 's')
     plt.colorbar()
     plt.show()
 
