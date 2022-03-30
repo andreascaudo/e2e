@@ -137,13 +137,18 @@ def mask_ideal_slit(image_size, sy_m, sx_m):
 
 def rebin_image(image, factor):
     p = int(factor[0])
+    print(p)
     q = int(factor[1])
+    print(q)
     size_img = image.shape
+    print(size_img)
 
-    new_image = np.sum(np.reshape(image, (p, -1)), axis=0)
-    new_image = np.reshape(new_image, (int(size_img[0]/p), -1)).T
+    new_image = np.sum(np.reshape(image, (p, -1), order="F"), axis=0)
 
-    new_image = np.sum(np.reshape(new_image, (q, -1)), axis=0)
-    new_image = np.reshape(new_image, (int(size_img[1]/q), -1)).T
+    new_image = np.reshape(new_image, (int(size_img[0]/p), -1), order="F").T
+
+    new_image = np.sum(np.reshape(new_image, (q, -1), order="F"), axis=0)
+    new_image = np.reshape(new_image, (int(size_img[1]/q), -1), order="F").T
+    # print(new_image.shape)
 
     return new_image
