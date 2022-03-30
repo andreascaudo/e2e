@@ -201,7 +201,6 @@ def calculation(configuration):
         # TEMP to sim few pixel
         v1 = np.array([1, 500, 1000, 1500, 1700]) * \
             parameter.pixel_oversampling
-        print(v1)
         for j in v1:  # in order_len_wavelength_subpix
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
@@ -235,6 +234,7 @@ def calculation(configuration):
             sy_m = order_efficiency_subpix
             sx_m = sx[j]
             mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
+            detector = detector * mask
 
             '''
             %----- FLIP SLIT (potrebbe essere che basta ruotare senza fare resampling).
@@ -251,19 +251,16 @@ def calculation(configuration):
             psf_map_j = psf_map[:, :, j]
             psf_map_j_norm = psf_map_j / np.sum(psf_map_j)
 
-            psf_box_z = psf_map_j_norm.shape[1]
+            psf_box_z = psf_map_j_norm.shape[0]
 
             # Convolution
             v1 = np.linspace(1, (parameter.psf_map_pixel_number *
                              spectrograph.dimension_pixel), psf_box_z)
             v2 = np.linspace(1, (parameter.psf_map_pixel_number * spectrograph.dimension_pixel),
                              (parameter.psf_map_pixel_number * spectrograph.dimension_pixel))
-            v3 = np.linspace(1, (parameter.psf_map_pixel_number * spectrograph.dimension_pixel),
-                             (parameter.psf_map_pixel_number * parameter.pixel_oversampling))
 
             x1, y1 = np.meshgrid(v1, v1)
             x2, y2 = np.meshgrid(v2, v2)
-            x3, y3 = np.meshgrid(v3, v3)
 
             # Interpolate the PSF map
             psf_interp = interpolate.griddata(
@@ -277,6 +274,7 @@ def calculation(configuration):
             # Resampling - rebinning factor : Num-SubPix of 1um size / Num-SubPix for PPP2
             rebin_factor = (parameter.psf_map_pixel_number * spectrograph.dimension_pixel) / (
                 parameter.psf_map_pixel_number * parameter.pixel_oversampling)
+
             psf_bin = tools.rebin_image(
                 psf_interp, [rebin_factor, rebin_factor])
             psf_bin_sum = np.sum(psf_bin)
@@ -319,7 +317,7 @@ def calculation(configuration):
     if DEBUG:
         import matplotlib.pyplot as plt
         plt.figure()
-        plt.imshow(spectrograph.detector_subpixel[:, :, 4], origin='lower')
+        plt.imshow(spectrograph.detector_subpixel[:, :, 4])
         plt.colorbar()
         plt.show()
 
@@ -335,11 +333,23 @@ def calculation(configuration):
             spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
                 spectrograph.subpixel_edge/2)+spectrograph.n_pixels_subpixel, t]
 
-    # Display the final detector image
+    # Display the final detector image [Sub-pixel]
 
+    # if DEBUG:
     import matplotlib.pyplot as plt
     plt.figure()
-    plt.imshow(detector_recombined, origin='lower')
+    plt.imshow(detector_recombined)
+    plt.colorbar()
+    # plt.show()
+
+    # Binnig to the final detector image with real size
+    detector_recombined_binned = tools.rebin_image(
+        detector_recombined, [parameter.pixel_oversampling, parameter.pixel_oversampling])
+
+    # Display the final detector image [Binned]
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.imshow(detector_recombined_binned)
     plt.colorbar()
     plt.show()
 
