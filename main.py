@@ -7,6 +7,7 @@ from .tool import generic as plt
 import numpy as np
 import math
 import time
+from tqdm import tqdm
 
 DEBUG = False
 
@@ -199,9 +200,11 @@ def calculation(configuration):
         # IMPLEMENT PROGRESS BAR
         # tic
         # TEMP to sim few pixel
-        v1 = np.array([1, 500, 1000, 1500, 1700]) * \
-            parameter.pixel_oversampling
-        for j in v1:  # in order_len_wavelength_subpix
+        # v1 = np.array([1, 500, 1000, 1500, 1700]) * \
+        #    parameter.pixel_oversampling
+        # for j in tqdm(v1):
+
+        for j in tqdm(range(0, order_len_wavelength_subpix)):
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
