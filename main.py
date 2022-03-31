@@ -204,7 +204,7 @@ def calculation(configuration):
         #    parameter.pixel_oversampling
         # for j in tqdm(v1):
 
-        for j in tqdm(range(0, order_len_wavelength_subpix)):
+        for j in tqdm(range(0, order_len_wavelength_subpix-1)):
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
