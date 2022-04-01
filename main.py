@@ -223,7 +223,7 @@ def calculation(configuration):
 
             print("Ended Init in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start obj & sky slit")
+            print("Start obj slit")
             subpix_time = time.time()
 
             # --- OBJ + SKY slit ---------------------------------------------
@@ -231,15 +231,21 @@ def calculation(configuration):
             object_slit = tools.object_slit(
                 object_efficiency[j], telescope, spectrograph, acquisition, parameter, image_size, ps_y_fact[i])
 
+            print("Ended obj slit in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start sky slit")
+            subpix_time = time.time()
+
             # SKY
             sky_slit = np.ones(image_size) * \
                 sky_efficiency[j] / (order_efficiency_subpix * sx[j])
 
+            print("Ended sky slit in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+
             # --- CCD --------------------------------------------------------
             detector = object_slit + sky_slit
 
-            print("Ended obj & sky slit in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
             print("Start mask")
             subpix_time = time.time()
 
