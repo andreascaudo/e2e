@@ -3,7 +3,7 @@ from .simulation import Configuration
 from .tool import tools
 from .tool import efficiency
 from .tool import unit_converter
-from .tool import generic as plt
+from .tool import plot
 import numpy as np
 import math
 import time
@@ -26,13 +26,13 @@ def run(configuration: Configuration):
     sed_wavelength, sed_flux = acquisition.sed.get_flux()
 
     if DEBUG:
-        plt("SED", sed_wavelength, sed_flux, [
+        plot.generic("SED", sed_wavelength, sed_flux, [
             "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
     sed_wavelength, sed_flux = acquisition.sed.normalize()
 
     if DEBUG:
-        plt("SED Normalized", sed_wavelength, sed_flux, [
+        plot.generic("SED Normalized", sed_wavelength, sed_flux, [
             "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
     # 2nd step: get sky radiance and transission
@@ -41,11 +41,11 @@ def run(configuration: Configuration):
         acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y)
 
     if DEBUG:
-        plt("Sky transmission", transimission.wavelength,
-            transimission.transmission, ["wavelength [$\AA$]", "[-]"])
+        plot.generic("Sky transmission", transimission.wavelength,
+                     transimission.transmission, ["wavelength [$\AA$]", "[-]"])
 
-        plt("Sky radiance", radiance.wavelength,
-            radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
+        plot.generic("Sky radiance", radiance.wavelength,
+                     radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
 
     # 3th step: Set Sky and Obj Efficiency
 
@@ -84,10 +84,12 @@ def calculation(configuration):
     psf_bin_matrix = np.zeros(
         (spectrograph.psf_map_pixel_number_subpixel, spectrograph.psf_map_pixel_number_subpixel, spectrograph.len_n_orders))
 
-    print("Start Orders")
-    order_time = time.time()
+    #orders_loop = range(0, spectrograph.len_n_orders-1)
+    orders_loop = [4]
+    for i in tqdm(orders_loop):  # [4]
+        print("Start Order: ", str(i))
+        order_time = time.time()
 
-    for i in [4]:  # range(0, spectrograph.len_n_orders)
         # ---------------------------------------------------------------------
         # order and single-order-table
         order_number = spectrograph.n_orders[i]
@@ -152,19 +154,11 @@ def calculation(configuration):
             spectrograph_wavematrix_order_i, acquisition.sed.sed_total_efficincy[i], order_wavelength_subpix, "extrapolate", "cubic")
 
         # ---------------------------------------------------------------------
-        # Initializing PSF interpolated maps
-        psf_map = np.zeros((parameter.psf_field_sampling,
-                           parameter.psf_field_sampling, order_len_wavelength_subpix))
-
-        # Iter for each grid-point to interpolate in lambda
-
-        order_psf_map_cube = spectrograph.psf_map[i][1]  # [1] -> .Cubes
-
-        for x in range(0, parameter.psf_field_sampling):
-            for y in range(0, parameter.psf_field_sampling):
-                psf_data_xy = order_psf_map_cube[x][y]
-                psf_map[x][y] = tools.interp(
-                    wavelength, psf_data_xy, order_wavelength_subpix, "extrapolate")  # in subpix
+        # Initializing and interpolate PSF map
+        psf_map_shape = ((parameter.psf_field_sampling,
+                         parameter.psf_field_sampling, order_len_wavelength_subpix))
+        psf_map = tools.interpolate_psf_map(
+            psf_map_shape, spectrograph.psf_map[i][1], wavelength, order_wavelength_subpix)
 
         # ---------------------------------------------------------------------
         # Effective slit length / height and width/sampling_x
@@ -184,7 +178,6 @@ def calculation(configuration):
         # Vectors and matrices initializing
         object_counts = np.zeros((order_len_wavelength_subpix, 1))
         sky_counts = np.zeros((order_len_wavelength_subpix, 1))
-        F2_mat = np.zeros((order_len_wavelength_subpix, 101))
         object_efficiency = np.zeros((order_len_wavelength_subpix, 1))
         sky_efficiency = np.zeros((order_len_wavelength_subpix, 1))
 
@@ -204,7 +197,11 @@ def calculation(configuration):
         #    parameter.pixel_oversampling
         # for j in tqdm(v1):
 
-        for j in tqdm(range(0, order_len_wavelength_subpix-1)):
+        # rng = range(0, order_len_wavelength_subpix-1)
+        rng = range(1010 * parameter.pixel_oversampling,
+                    1040 * parameter.pixel_oversampling)
+
+        for j in tqdm(rng):
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
@@ -239,12 +236,7 @@ def calculation(configuration):
             mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
             detector = detector * mask
 
-            '''
-            %----- FLIP SLIT (potrebbe essere che basta ruotare senza fare resampling).
-            tilt=-tilt_order(i); % --> !!!!! TILT,tilt(j));
-            CCD_part_2=imrotate(CCD_part_1,tilt,'bilinear','crop');
-            '''
-
+            # ----- FLIP SLIT(potrebbe essere che basta ruotare senza fare resampling).
             tilt = -order_tilt[j]
             # Rotate the detector by tilt
             detector_rotated = ndimage.rotate(detector, tilt, reshape=False)
@@ -256,20 +248,14 @@ def calculation(configuration):
 
             psf_box_z = psf_map_j_norm.shape[0]
 
-            # Convolution
+            #  Initialize the convolution matrix
             v1 = np.linspace(1, (parameter.psf_map_pixel_number *
-                             spectrograph.dimension_pixel), psf_box_z)
+                                 spectrograph.dimension_pixel), psf_box_z)
             v2 = np.linspace(1, (parameter.psf_map_pixel_number * spectrograph.dimension_pixel),
                              (parameter.psf_map_pixel_number * spectrograph.dimension_pixel))
 
-            x1, y1 = np.meshgrid(v1, v1)
-            x2, y2 = np.meshgrid(v2, v2)
-
-            # Interpolate the PSF map
-            psf_interp = interpolate.griddata(
-                (x1.flatten(), y1.flatten()), psf_map_j_norm.flatten(), (x2, y2))
-            psf_interp = psf_interp/((v1[1]-v1[0])**2)
-            psf_interp_sum = np.sum(psf_interp)
+            psf_interp, psf_interp_sum = tools.interpolate_griddata_psf_map(
+                psf_map_j_norm, v1, v2)
 
             # Normalize the PSF map
             psf_interp = psf_interp / psf_interp_sum
@@ -277,10 +263,8 @@ def calculation(configuration):
             # Resampling - rebinning factor : Num-SubPix of 1um size / Num-SubPix for PPP2
             rebin_factor = (parameter.psf_map_pixel_number * spectrograph.dimension_pixel) / (
                 parameter.psf_map_pixel_number * parameter.pixel_oversampling)
-
             psf_bin = tools.rebin_image(
                 psf_interp, [rebin_factor, rebin_factor])
-            psf_bin_sum = np.sum(psf_bin)
 
             # Convolution
             detector_conv = ndimage.convolve(
@@ -288,17 +272,6 @@ def calculation(configuration):
 
             # --- POSITION IMAGE SIMULATION ELEMENT ---------------------------
 
-            '''
-            refx=refx_vect_1(i) + (edge/2);
-            refy=refy_vect_1(i); %refy_vect(i) + (edge/2);
-            % THIS WORKS both for EVEN and ODD cases!!! :)
-            refy_in=(refy-(floor((size(CCD_part_3,1))./2)));
-            refy_fin = refy_in + size(CCD_part_3,1) - 1;
-            refx_in=(refx-(floor((size(CCD_part_3,2))./2)));
-            refx_fin = refx_in + size(CCD_part_3,2) - 1;
-            %
-            CCD0_ord(refy_in:refy_fin, refx_in:refx_fin) = CCD0_ord(refy_in:refy_fin, refx_in:refx_fin) + CCD_part_3;
-            '''
             ref_x = order_x_subpix[j] + (spectrograph.subpixel_edge/2)
             ref_y = order_y_subpix[j]
 
@@ -316,18 +289,18 @@ def calculation(configuration):
         print("End Order: " + str(i))
         print("--- %s seconds ---" % (time.time() - order_time))
 
-    # Display the final detector image
-    if DEBUG:
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.imshow(spectrograph.detector_subpixel[:, :, 4])
-        plt.colorbar()
-        plt.show()
+        # Display the final detector image
+        if DEBUG:
+            plot.detector("Order: " + str(i),
+                          spectrograph.detector_subpixel[:, :, i])
+
+    # -------------------------------------------------------------------------
+    # Recombination of the orders
 
     detector_recombined = np.zeros(
         (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
 
-    for t in [4]:  # range(0, spectrograph.len_n_orders)
+    for t in orders_loop:
         yy_start = int(order_y_subpix_min[t] -
                        (3*spectrograph.psf_map_pixel_number_subpixel))
         yy_end = int(yy_start + (310*parameter.pixel_oversampling))
@@ -350,12 +323,7 @@ def calculation(configuration):
     detector_final = detector_telescope * \
         acquisition.characteristics.detector_integration_time
 
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.imshow(detector_final)
-    plt.title('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
-              str(acquisition.characteristics.detector_integration_time) + 's')
-    plt.colorbar()
-    plt.show()
+    plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
+                  str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
 
     # --- END OF THE SIMULATION ------------------------------------------------

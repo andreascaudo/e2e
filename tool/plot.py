@@ -16,3 +16,13 @@ def generic(title, wavelength, flux, labels, legend=False):
         plt.legend()
 
     plt.show()
+
+# Plot the image of the detector
+
+
+def detector(title, image):
+    plt.figure()
+    plt.title(title)
+    plt.imshow(image)
+    plt.colorbar()
+    plt.show()

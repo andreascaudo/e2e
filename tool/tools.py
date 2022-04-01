@@ -149,3 +149,28 @@ def rebin_image(image, factor):
     # print(new_image.shape)
 
     return new_image
+
+
+def interpolate_psf_map(psf_map_shape, order_psf_map_cube, wavelength, order_wavelength_subpix):
+    psf_map = np.zeros(psf_map_shape)
+
+    # Iter for each grid-point to interpolate in lambda
+
+    for x in range(0, psf_map_shape[0]):
+        for y in range(0, psf_map_shape[1]):
+            psf_data_xy = order_psf_map_cube[x][y]
+            psf_map[x][y] = interp(
+                wavelength, psf_data_xy, order_wavelength_subpix, "extrapolate")  # in subpix
+
+    return psf_map
+
+
+def interpolate_griddata_psf_map(psf_map_j_norm, v1, v2):
+    x1, y1 = np.meshgrid(v1, v1)
+    x2, y2 = np.meshgrid(v2, v2)
+
+    # Interpolate the PSF map
+    psf_interp = interpolate.griddata(
+        (x1.flatten(), y1.flatten()), psf_map_j_norm.flatten(), (x2, y2))
+    psf_interp = psf_interp/((v1[1]-v1[0])**2)
+    return psf_interp, np.sum(psf_interp)
