@@ -202,6 +202,9 @@ def calculation(configuration):
                     1040 * parameter.pixel_oversampling)
 
         for j in tqdm(rng):
+            print("Starting order: ", i, " pixel: ", j)
+            print("Start init")
+            subpix_time = time.time()
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
@@ -218,6 +221,11 @@ def calculation(configuration):
             image_size = [6*spectrograph.psf_map_pixel_number_subpixel,
                           2*spectrograph.psf_map_pixel_number_subpixel]
 
+            print("Ended Init in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start obj & sky slit")
+            subpix_time = time.time()
+
             # --- OBJ + SKY slit ---------------------------------------------
             # OBJ
             object_slit = tools.object_slit(
@@ -230,16 +238,31 @@ def calculation(configuration):
             # --- CCD --------------------------------------------------------
             detector = object_slit + sky_slit
 
+            print("Ended obj & sky slit in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start mask")
+            subpix_time = time.time()
+
             # --- MASK --------------------------------------------------------
             sy_m = order_efficiency_subpix
             sx_m = sx[j]
             mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
             detector = detector * mask
 
+            print("Ended mask in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start tilting")
+            subpix_time = time.time()
+
             # ----- FLIP SLIT(potrebbe essere che basta ruotare senza fare resampling).
             tilt = -order_tilt[j]
             # Rotate the detector by tilt
             detector_rotated = ndimage.rotate(detector, tilt, reshape=False)
+
+            print("Ended tilting in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start interpolate for convoluting")
+            subpix_time = time.time()
 
             # --- WHEN CONV TO BE DONE HERE ---------------------------------------
             # Extract the wave-interp map and normalization
@@ -257,6 +280,11 @@ def calculation(configuration):
             psf_interp, psf_interp_sum = tools.interpolate_griddata_psf_map(
                 psf_map_j_norm, v1, v2)
 
+            print("Ended interpolate for convoluting in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start normalize and rebin convoluting")
+            subpix_time = time.time()
+
             # Normalize the PSF map
             psf_interp = psf_interp / psf_interp_sum
 
@@ -266,9 +294,19 @@ def calculation(configuration):
             psf_bin = tools.rebin_image(
                 psf_interp, [rebin_factor, rebin_factor])
 
+            print("Ended normalize and rebin convoluting in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start convoluting")
+            subpix_time = time.time()
+
             # Convolution
             detector_conv = ndimage.convolve(
                 detector_rotated, psf_bin)
+
+            print("Ended convoluting in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+            print("Start Positioning the image")
+            subpix_time = time.time()
 
             # --- POSITION IMAGE SIMULATION ELEMENT ---------------------------
 
@@ -283,8 +321,11 @@ def calculation(configuration):
             order_detector_subpixel[ref_y_start:ref_y_end,
                                     ref_x_start:ref_x_end] = order_detector_subpixel[ref_y_start:ref_y_end, ref_x_start:ref_x_end] + detector_conv
 
-            spectrograph.detector_subpixel[:, :, i] = order_detector_subpixel
-            psf_bin_matrix[:, :, i] = psf_bin
+            print("Ended Positioning the image in:")
+            print("--- %s seconds ---" % (time.time() - subpix_time))
+
+        spectrograph.detector_subpixel[:, :, i] = order_detector_subpixel
+        psf_bin_matrix[:, :, i] = psf_bin
 
         print("End Order: " + str(i))
         print("--- %s seconds ---" % (time.time() - order_time))
