@@ -1,10 +1,12 @@
 import math
 from scipy import interpolate
 import numpy as np
+from numba import njit
 
 from . import unit_converter
 
 
+@njit()
 def gaussian_distribution(x, y, counts, refx, refy, sx, sy):
     peak = counts / (2*sx*sy*math.pi)
     return peak * np.exp(-((x - refx)**2/(2*(sx**2)) + (y - refy)**2/(2*(sy**2))))
@@ -38,16 +40,17 @@ def integration(lam, delta_lam, flux):
     return counts
 
 
-def object_slit(counts, telescope, spectograph, acquisition, parameter, image_size, ps_y_fact):
-    pixelsz = spectograph.dimension_pixel / parameter.pixel_oversampling
+@njit()
+def object_slit(counts, f_number, pupil_equivalent_diameter, dimension_pixel, seeing, pixel_oversampling, image_size, ps_y_fact):
+    pixelsz = dimension_pixel / pixel_oversampling
 
     refx = -((image_size[0]/2) - np.round(image_size[0]/2))
     refy = ((image_size[1]/2) - np.round(image_size[1]/2))
 
-    f = telescope.f_number * telescope.pupil_equivalent_diameter * 10
+    f = f_number * pupil_equivalent_diameter * 10
     plate_scale = (f/206265)*1000
-    FWHM_x = plate_scale * acquisition.sky.seeing  # in um
-    FWHM_y = plate_scale * acquisition.sky.seeing  # in um
+    FWHM_x = plate_scale * seeing  # in um
+    FWHM_y = plate_scale * seeing  # in um
 
     sx = (FWHM_x/(2.35*pixelsz))*ps_y_fact
     sy = (FWHM_y/(2.35*pixelsz))
@@ -88,15 +91,16 @@ def object_slit(counts, telescope, spectograph, acquisition, parameter, image_si
                 ymax = 0.5
 
             # Integrale di volume
-            phi_vect = np.zeros(4)
+            phi_vect = np.empty(4)
+
             phi_vect[0] = gaussian_distribution(
-                xmin, ymin, counts, refx, refy, sx, sy)
+                xmin, ymin, counts, refx, refy, sx, sy)[0]
             phi_vect[1] = gaussian_distribution(
-                xmax, ymin, counts, refx, refy, sx, sy)
+                xmax, ymin, counts, refx, refy, sx, sy)[0]
             phi_vect[2] = gaussian_distribution(
-                xmax, ymax, counts, refx, refy, sx, sy)
+                xmax, ymax, counts, refx, refy, sx, sy)[0]
             phi_vect[3] = gaussian_distribution(
-                xmin, ymax, counts, refx, refy, sx, sy)
+                xmin, ymax, counts, refx, refy, sx, sy)[0]
 
             max_val = max(phi_vect)
             max_index = np.argmax(phi_vect)
@@ -122,6 +126,12 @@ def object_slit(counts, telescope, spectograph, acquisition, parameter, image_si
     return detector
 
 
+@njit()
+def mask_maker(x, y, image_size, sx_m, sy_m):
+    return (x > ((image_size[1]-sx_m)/2)) & (x <= ((image_size[1]+sx_m) /
+                                                   2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2))
+
+
 def mask_ideal_slit(image_size, sy_m, sx_m):
 
     x = np.arange(0, image_size[1], 1)
@@ -129,8 +139,7 @@ def mask_ideal_slit(image_size, sy_m, sx_m):
 
     x, y = np.meshgrid(x, y)
 
-    mask = (x > ((image_size[1]-sx_m)/2)) & (x <= ((image_size[1]+sx_m) /
-                                                   2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2))
+    mask = mask_maker(x, y, image_size, sx_m, sy_m)
 
     return mask
 

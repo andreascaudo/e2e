@@ -9,7 +9,10 @@ import math
 import time
 from tqdm import tqdm
 
+import numba
+
 DEBUG = False
+TIME = False
 
 
 def run(configuration: Configuration):
@@ -197,14 +200,16 @@ def calculation(configuration):
         #    parameter.pixel_oversampling
         # for j in tqdm(v1):
 
-        # rng = range(0, order_len_wavelength_subpix-1)
-        rng = range(1010 * parameter.pixel_oversampling,
-                    1040 * parameter.pixel_oversampling)
+        rng = range(0, order_len_wavelength_subpix-1)
+        # rng = range(1010 * parameter.pixel_oversampling,
+        #            1040 * parameter.pixel_oversampling)
 
         for j in tqdm(rng):
-            print("Starting order: ", i, " pixel: ", j)
-            print("Start init")
-            subpix_time = time.time()
+            if TIME:
+                print("Starting order: ", i, " pixel: ", j)
+                print("Start init")
+                subpix_time = time.time()
+
             # Obj Counts & Efficiency
             object_counts[j] = tools.integration(
                 order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
@@ -218,36 +223,44 @@ def calculation(configuration):
                 order_total_efficiency_sky.T[1][j]
 
             # --- Image size --------------------------------------------------
-            image_size = [6*spectrograph.psf_map_pixel_number_subpixel,
-                          2*spectrograph.psf_map_pixel_number_subpixel]
-
-            print("Ended Init in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start obj slit")
-            subpix_time = time.time()
+            image_size = np.array([6*spectrograph.psf_map_pixel_number_subpixel,
+                                   2*spectrograph.psf_map_pixel_number_subpixel])
+            if TIME:
+                print("Ended Init in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start obj slit")
+                subpix_time = time.time()
 
             # --- OBJ + SKY slit ---------------------------------------------
             # OBJ
             object_slit = tools.object_slit(
-                object_efficiency[j], telescope, spectrograph, acquisition, parameter, image_size, ps_y_fact[i])
+                object_efficiency[j],
+                telescope.f_number, telescope.pupil_equivalent_diameter,
+                spectrograph.dimension_pixel,
+                acquisition.sky.seeing,
+                parameter.pixel_oversampling,
+                image_size, ps_y_fact[i])
 
-            print("Ended obj slit in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start sky slit")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended obj slit in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start sky slit")
+                subpix_time = time.time()
 
             # SKY
             sky_slit = np.ones(image_size) * \
                 sky_efficiency[j] / (order_efficiency_subpix * sx[j])
 
-            print("Ended sky slit in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
+            if TIME:
+                print("Ended sky slit in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
 
             # --- CCD --------------------------------------------------------
             detector = object_slit + sky_slit
 
-            print("Start mask")
-            subpix_time = time.time()
+            if TIME:
+                print("Start mask")
+                subpix_time = time.time()
 
             # --- MASK --------------------------------------------------------
             sy_m = order_efficiency_subpix
@@ -255,20 +268,22 @@ def calculation(configuration):
             mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
             detector = detector * mask
 
-            print("Ended mask in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start tilting")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended mask in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start tilting")
+                subpix_time = time.time()
 
             # ----- FLIP SLIT(potrebbe essere che basta ruotare senza fare resampling).
             tilt = -order_tilt[j]
             # Rotate the detector by tilt
             detector_rotated = ndimage.rotate(detector, tilt, reshape=False)
 
-            print("Ended tilting in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start interpolate for convoluting")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended tilting in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start interpolate for convoluting")
+                subpix_time = time.time()
 
             # --- WHEN CONV TO BE DONE HERE ---------------------------------------
             # Extract the wave-interp map and normalization
@@ -286,10 +301,11 @@ def calculation(configuration):
             psf_interp, psf_interp_sum = tools.interpolate_griddata_psf_map(
                 psf_map_j_norm, v1, v2)
 
-            print("Ended interpolate for convoluting in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start normalize and rebin convoluting")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended interpolate for convoluting in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start normalize and rebin convoluting")
+                subpix_time = time.time()
 
             # Normalize the PSF map
             psf_interp = psf_interp / psf_interp_sum
@@ -300,19 +316,21 @@ def calculation(configuration):
             psf_bin = tools.rebin_image(
                 psf_interp, [rebin_factor, rebin_factor])
 
-            print("Ended normalize and rebin convoluting in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start convoluting")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended normalize and rebin convoluting in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start convoluting")
+                subpix_time = time.time()
 
             # Convolution
             detector_conv = ndimage.convolve(
                 detector_rotated, psf_bin)
 
-            print("Ended convoluting in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
-            print("Start Positioning the image")
-            subpix_time = time.time()
+            if TIME:
+                print("Ended convoluting in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
+                print("Start Positioning the image")
+                subpix_time = time.time()
 
             # --- POSITION IMAGE SIMULATION ELEMENT ---------------------------
 
@@ -327,8 +345,9 @@ def calculation(configuration):
             order_detector_subpixel[ref_y_start:ref_y_end,
                                     ref_x_start:ref_x_end] = order_detector_subpixel[ref_y_start:ref_y_end, ref_x_start:ref_x_end] + detector_conv
 
-            print("Ended Positioning the image in:")
-            print("--- %s seconds ---" % (time.time() - subpix_time))
+            if TIME:
+                print("Ended Positioning the image in:")
+                print("--- %s seconds ---" % (time.time() - subpix_time))
 
         spectrograph.detector_subpixel[:, :, i] = order_detector_subpixel
         psf_bin_matrix[:, :, i] = psf_bin
