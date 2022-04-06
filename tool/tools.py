@@ -1,5 +1,7 @@
 import math
+from scipy import ndimage
 from scipy import interpolate
+from scipy import signal
 import numpy as np
 from numba import njit
 
@@ -183,3 +185,69 @@ def interpolate_griddata_psf_map(psf_map_j_norm, v1, v2):
         (x1.flatten(), y1.flatten()), psf_map_j_norm.flatten(), (x2, y2))
     psf_interp = psf_interp/((v1[1]-v1[0])**2)
     return psf_interp, np.sum(psf_interp)
+
+
+def convolve(image, kernel):
+    # return ndimage.convolve(image, kernel)
+    return signal.fftconvolve(image, kernel, mode='same')
+
+
+@njit(cache=True)
+def convolve2D(image, kernel, strides=1):
+    # Cross Correlation
+    kernel = np.flipud(np.fliplr(kernel))
+
+    # Gather Shapes of Kernel + Image + Padding
+    xKernShape = kernel.shape[0]
+    yKernShape = kernel.shape[1]
+    xImgShape = image.shape[0]
+    yImgShape = image.shape[1]
+
+    # Shape of Output Convolution
+    xOutput = int(((xImgShape - xKernShape) / strides) + 1)
+    yOutput = int(((yImgShape - yKernShape) / strides) + 1)
+    output = np.zeros((xOutput, yOutput))
+
+    # Iterate through image
+    for y in range(image.shape[1]):
+        # Exit Convolution
+        if y > image.shape[1] - yKernShape:
+            break
+        # Only Convolve if y has gone down by the specified Strides
+        if y % strides == 0:
+            for x in range(image.shape[0]):
+                # Go to next row once kernel is out of bounds
+                if x > image.shape[0] - xKernShape:
+                    break
+                try:
+                    # Only Convolve if x has moved by the specified Strides
+                    if x % strides == 0:
+                        output[x, y] = (
+                            kernel * image[x: x + xKernShape, y: y + yKernShape]).sum()
+                except:
+                    break
+
+    return output
+
+
+def flip_slit(detector, to_tilt):
+    tilt = -to_tilt
+    # Rotate the detector by tilt
+    return ndimage.rotate(detector, tilt, reshape=False)
+
+
+@njit()
+def normalize_psf_map(psf_map_j):
+    psf_map_j_norm = psf_map_j / np.sum(psf_map_j)
+    psf_box_z = psf_map_j_norm.shape[0]
+
+    return psf_map_j_norm, psf_box_z
+
+
+@njit()
+def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
+    v1 = np.linspace(1, (psf_map_pixel_number *
+                         dimension_pixel), psf_box_z)
+    v2 = np.linspace(1, (psf_map_pixel_number * dimension_pixel),
+                     (psf_map_pixel_number * dimension_pixel))
+    return v1, v2
