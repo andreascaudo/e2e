@@ -25,7 +25,7 @@ therm_t3        :  0.0
 therm_e3        :  0.0
 vacair          :  vac
 wmin            :  300.0
-wmax            :  2200.0
+wmax            :  2400.0
 wgrid_mode      :  fixed_wavelength_step
 wdelta          :  0.1
 wres            :  20000
