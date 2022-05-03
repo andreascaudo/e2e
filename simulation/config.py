@@ -34,7 +34,7 @@ class Configuration:
         spectrograph: Spectrograph,         # Spectrograph Parameters
         parameters: Parameter                    # Simulation Paramenters
     ):
-        self.output = output,
+        self.output = output
         self.acquisition = acquisition
         self.telescope = telescope
         self.spectrograph = spectrograph
