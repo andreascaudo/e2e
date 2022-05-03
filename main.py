@@ -11,14 +11,17 @@ from astropy.io import fits
 from concurrent import futures
 from itertools import repeat
 from tqdm import tqdm
+from os import path
 
 DEBUG = False
 TIME = False
 PARALLEL = True
+SAVE = True
 
 
 def run(configuration: Configuration):
     # Unpack configuration
+    output = configuration.output
     telescope = configuration.telescope
     spectrograph = configuration.spectrograph
     acquisition = configuration.acquisition
@@ -52,6 +55,10 @@ def run(configuration: Configuration):
         plot.generic("Sky radiance", radiance.wavelength,
                      radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
 
+        for i in range(0, spectrograph.len_n_orders):
+            plot.generic("Spectrograph + Telesciope Efficiency",
+                         spectrograph.wavematrix[i], spectrograph.telescope_spectrograph_efficiency_fdr[i], ["wavelength [$\AA$]", "[-]"])
+
     # 3th step: Set Sky and Obj Efficiency
     acquisition.sky.set_efficiency(spectrograph.wavematrix,
                                    spectrograph.telescope_spectrograph_efficiency_fdr)
@@ -69,6 +76,7 @@ def run(configuration: Configuration):
     order_y_subpix_min = np.zeros((spectrograph.len_n_orders))
 
     orders = np.arange(0, spectrograph.len_n_orders)
+    #orders = np.array([15, 14, 7, 6, 1, 0])
     #orders = np.array([15])
 
     print("Start Calculations")
@@ -81,11 +89,11 @@ def run(configuration: Configuration):
                 calculation, orders, repeat(configuration))
 
             for i, result in enumerate(parallel_results):
-                spectrograph.detector_subpixel[:, :, i] = result[0]
-                order_y_subpix_min[i] = result[1]
+                spectrograph.detector_subpixel[:, :, result[2]] = result[0]
+                order_y_subpix_min[result[2]] = result[1]
     else:
         for order in orders:
-            spectrograph.detector_subpixel[:, :, order], order_y_subpix_min[order] = calculation(
+            spectrograph.detector_subpixel[:, :, order], order_y_subpix_min[order], i = calculation(
                 order, configuration)
 
  # -------------------------------------------------------------------------
@@ -96,7 +104,7 @@ def run(configuration: Configuration):
 
     for t in orders:
         yy_start = int(order_y_subpix_min[t] -
-                       (3*spectrograph.psf_map_pixel_number_subpixel))
+                       (3*spectrograph.psf_map_pixel_number_subpixel)) - 1
         yy_end = int(yy_start + (310*parameter.pixel_oversampling))
 
         detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
@@ -120,22 +128,18 @@ def run(configuration: Configuration):
     plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
                   str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
 
-    fits.writeto("/Users/andre/Desktop/INAF/E2E_simulator/report/fits/blackbody_900s.fits",
-                 detector_final, overwrite=True)
+    # Get current time and use it to save the fits file
+    if SAVE:
+        current_time = time.strftime("%Y%m%d-%H%M%S")
+        folder = output.output_folder
+        filename = current_time + '.fits'
+        fits.writeto(path.join(folder, filename),
+                     detector_final, overwrite=True)
 
     # --- END OF THE SIMULATION ------------------------------------------------
 
     print("End Calculations")
     print("--- %s seconds ---" % (time.time() - start_time))
-
-
-def do_in_parallel(orders, configuration):
-    pass
-
-
-def temp(orders, configuration):
-    print(orders)
-    return 3
 
 
 def calculation(i, configuration):
@@ -265,8 +269,10 @@ def calculation(i, configuration):
     # for j in tqdm(v1):
 
     rng = range(0, order_len_wavelength_subpix-1)
-    # rng = range(2009 * parameter.pixel_oversampling,
-    #            2010 * parameter.pixel_oversampling)
+    # rng = range(1500 * parameter.pixel_oversampling,
+    #            1600 * parameter.pixel_oversampling)
+    #rng = np.array([600, 1000, 1400])*parameter.pixel_oversampling
+    #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
 
     for j in tqdm(rng):
         if TIME:
@@ -316,6 +322,8 @@ def calculation(i, configuration):
         # SKY
         sky_slit = np.ones(image_size) * \
             sky_efficiency[j] / (order_efficiency_subpix * sx[j])
+
+        #plot.detector('SKY', sky_slit)
 
         if TIME:
             print("Ended sky slit in:")
@@ -402,9 +410,9 @@ def calculation(i, configuration):
         ref_x = order_x_subpix[j] + (spectrograph.subpixel_edge/2)
         ref_y = order_y_subpix[j]
 
-        ref_y_start = int(ref_y - (np.floor(detector_conv.shape[0]/2)))
+        ref_y_start = int(ref_y - (np.floor(detector_conv.shape[0]/2))) - 1
         ref_y_end = int(ref_y_start + detector_conv.shape[0])
-        ref_x_start = int(ref_x - (np.floor(detector_conv.shape[1]/2)))
+        ref_x_start = int(ref_x - (np.floor(detector_conv.shape[1]/2))) - 1
         ref_x_end = int(ref_x_start + detector_conv.shape[1])
 
         order_detector_subpixel[ref_y_start:ref_y_end,
@@ -427,4 +435,4 @@ def calculation(i, configuration):
         plot.detector("Order: " + str(i),
                       spectrograph.detector_subpixel[:, :, i])
 
-    return spectrograph.detector_subpixel[:, :, i], order_y_subpix_min[i]
+    return spectrograph.detector_subpixel[:, :, i], order_y_subpix_min[i], i
