@@ -16,8 +16,7 @@ from os import path
 
 DEBUG = False
 TIME = False
-PARALLEL = True
-SAVE = True
+PARALLEL = False
 
 
 def run(configuration: Configuration):
@@ -140,7 +139,7 @@ def run(configuration: Configuration):
                   str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
 
     # Get current time and use it to save the fits file
-    if SAVE:
+    if output.SAVE:
         current_time = time.strftime("%Y%m%d-%H%M%S")
         folder = output.output_folder
         filename = current_time + '.fits'
@@ -280,10 +279,10 @@ def calculation(i, configuration):
     #    parameter.pixel_oversampling
     # for j in tqdm(v1):
 
-    rng = range(0, order_len_wavelength_subpix-1)
+    #rng = range(0, order_len_wavelength_subpix-1)
     # rng = range(1500 * parameter.pixel_oversampling,
     #            1600 * parameter.pixel_oversampling)
-    #rng = np.array([1000])*parameter.pixel_oversampling
+    rng = np.array([1000])*parameter.pixel_oversampling
     #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
 
     for j in tqdm(rng):
