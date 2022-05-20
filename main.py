@@ -1,4 +1,5 @@
 from scipy import ndimage, interpolate
+
 from .simulation import Configuration
 from .tool import tools
 from .tool import efficiency
@@ -23,6 +24,7 @@ def run(configuration: Configuration):
     # Unpack configuration
     output = configuration.output
     telescope = configuration.telescope
+    calibration = configuration.calibration
     spectrograph = configuration.spectrograph
     acquisition = configuration.acquisition
     parameter = configuration.parameters
@@ -37,7 +39,8 @@ def run(configuration: Configuration):
         plot.generic("SED", sed_wavelength, sed_flux, [
             "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
 
-    sed_wavelength, sed_flux = acquisition.sed.normalize()
+    if not acquisition.sed.calibration:
+        sed_wavelength, sed_flux = acquisition.sed.normalize()
 
     if DEBUG:
         plot.generic("SED Normalized", sed_wavelength, sed_flux, [
@@ -47,7 +50,6 @@ def run(configuration: Configuration):
     # [-] ,[ph/s/cm2/A]
     transimission, radiance = acquisition.sky.get_sky(
         acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y)
-
     if DEBUG:
         plot.generic("Sky transmission", transimission.wavelength,
                      transimission.transmission, ["wavelength [$\AA$]", "[-]"])
@@ -66,16 +68,21 @@ def run(configuration: Configuration):
                                    spectrograph.wavematrix, spectrograph.telescope_spectrograph_efficiency_fdr)
 
     # 4th step: Get Slit Efficiency and Image Quality
-    slit_efficiency_matrix, fwhm_iq_matrix = efficiency.get_slit_efficiency(spectrograph.wavematrix, acquisition.sky.airmass,
-                                                                            acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
-                                                                            acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
+    # slit_efficiency_matrix, fwhm_iq_matrix = efficiency.get_slit_efficiency(spectrograph.wavematrix, acquisition.sky.airmass,
+    #                                                                        acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
+    #                                                                        acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
 
     spectrograph.set_subpixels(
         parameter.pixel_oversampling, parameter.psf_map_pixel_number)
 
     order_y_subpix_min = np.zeros((spectrograph.len_n_orders))
 
-    orders = np.arange(0, spectrograph.len_n_orders)
+    if parameter.orders_index != None:
+        orders = np.array(parameter.orders_index)
+        print(orders)
+    else:
+        orders = np.arange(0, spectrograph.len_n_orders)
+        print(orders)
     #orders = np.array([15, 14, 7, 6, 1, 0])
     #orders = np.array([15])
 
@@ -112,17 +119,21 @@ def run(configuration: Configuration):
                 spectrograph.subpixel_edge/2)+spectrograph.n_pixels_subpixel, t]
 
     # Binnig to the final detector image with real size
+
     detector_recombined_binned = tools.rebin_image(
         detector_recombined, [parameter.pixel_oversampling, parameter.pixel_oversampling])
 
     # Display the final detector image [Binned]
 
     # Moltilpy for telescope are to obtain [/s]
-    detector_telescope = detector_recombined_binned * \
-        ((telescope.diameter/2) ** 2) * math.pi
+    if calibration is None:
+        detector_final = detector_recombined_binned * \
+            ((telescope.diameter/2) ** 2) * math.pi
+    else:
+        detector_final = detector_recombined_binned
 
     # Moltiply for time exposure
-    detector_final = detector_telescope * \
+    detector_final = detector_final * \
         acquisition.characteristics.detector_integration_time
 
     plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
@@ -146,6 +157,7 @@ def calculation(i, configuration):
     # Unpack configuration
     telescope = configuration.telescope
     spectrograph = configuration.spectrograph
+    calibration = configuration.calibration
     acquisition = configuration.acquisition
     parameter = configuration.parameters
 
@@ -271,7 +283,7 @@ def calculation(i, configuration):
     rng = range(0, order_len_wavelength_subpix-1)
     # rng = range(1500 * parameter.pixel_oversampling,
     #            1600 * parameter.pixel_oversampling)
-    #rng = np.array([600, 1000, 1400])*parameter.pixel_oversampling
+    #rng = np.array([1000])*parameter.pixel_oversampling
     #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
 
     for j in tqdm(rng):
@@ -305,13 +317,27 @@ def calculation(i, configuration):
         # --- OBJ + SKY slit ---------------------------------------------
 
         # OBJ
-        object_slit = tools.object_slit(
-            object_efficiency[j],
-            telescope.f_number, telescope.pupil_equivalent_diameter,
-            spectrograph.dimension_pixel,
-            acquisition.sky.seeing,
-            parameter.pixel_oversampling,
-            image_size, ps_y_fact[i])
+        if calibration is None:
+            if acquisition.sed.calibration:
+                object_slit = np.ones(image_size) * \
+                    object_efficiency[j] / (order_efficiency_subpix * sx[j])
+            else:
+                object_slit = tools.object_slit(
+                    object_efficiency[j],
+                    telescope.f_number, telescope.pupil_equivalent_diameter,
+                    spectrograph.dimension_pixel,
+                    acquisition.sky.seeing,
+                    parameter.pixel_oversampling,
+                    image_size, ps_y_fact[i])
+        else:
+            calibration_slit = tools.calibration_slit(
+                object_efficiency[j],
+                image_size,
+                calibration.area,
+                ps_y_fact[i],
+                acquisition.characteristics.slit_size_x,
+                parameter.pixel_oversampling
+            )
 
         if TIME:
             print("Ended obj slit in:")
@@ -323,23 +349,29 @@ def calculation(i, configuration):
         sky_slit = np.ones(image_size) * \
             sky_efficiency[j] / (order_efficiency_subpix * sx[j])
 
-        #plot.detector('SKY', sky_slit)
-
         if TIME:
             print("Ended sky slit in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
 
         # --- CCD --------------------------------------------------------
-        detector = object_slit + sky_slit
+        if calibration is None:
+            detector = object_slit + sky_slit
+        else:
+            detector = calibration_slit
 
         if TIME:
             print("Start mask")
             subpix_time = time.time()
 
         # --- MASK --------------------------------------------------------
-        sy_m = order_efficiency_subpix
-        sx_m = sx[j]
-        mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
+        if calibration is None:
+            sy_m = order_efficiency_subpix
+            sx_m = sx[j]
+            mask = tools.mask_ideal_slit(image_size, sy_m, sx_m)
+        else:
+            mask = calibration.get_mask(
+                ps_y_fact[i], image_size, parameter.pixel_oversampling, parameter.mask_oversampling)
+        # HERE
         detector = detector * mask
 
         if TIME:
@@ -397,6 +429,7 @@ def calculation(i, configuration):
         #    detector_rotated, psf_bin)
 
         detector_conv = tools.convolve(detector_rotated, psf_bin)
+
         # detector_conv = tools.convolve2D(detector_rotated, psf_bin) # DO NOT use "same" condition
 
         if TIME:

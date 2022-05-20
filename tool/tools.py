@@ -1,4 +1,5 @@
 import math
+from charset_normalizer import detect
 from scipy import ndimage
 from scipy import interpolate
 from scipy import signal
@@ -40,6 +41,16 @@ def integration(lam, delta_lam, flux):
             spec_flux_norm_interp[i] * dl  # Nfot/(s*cm^2)
 
     return counts
+
+
+@njit()
+def calibration_slit(counts, image_size, area, ps_y_fact, slit_x, pixel_oversampling):
+    d_arcsec = (slit_x/(slit_x*4))/pixel_oversampling
+    h_mask_mu = np.ceil(slit_x/d_arcsec)
+
+    detector = np.ones((image_size[0], image_size[1])) * (counts * area) / \
+        ((math.pi/4) * ps_y_fact * h_mask_mu * h_mask_mu)
+    return detector
 
 
 @njit()
@@ -144,6 +155,10 @@ def mask_ideal_slit(image_size, sy_m, sx_m):
     mask = mask_maker(x, y, image_size, sx_m, sy_m)
 
     return mask
+
+
+def multi_pinhole():
+    return
 
 
 def rebin_image(image, factor):

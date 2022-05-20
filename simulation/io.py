@@ -3,6 +3,7 @@ import yaml
 from .output import Output
 from ..acquisition import Acquisition
 from ..instrument import Spectrograph
+from ..instrument import calibration
 from ..instrument import Telescope
 from .config import Configuration, Parameter
 
@@ -13,6 +14,11 @@ def to_output(dct: dict):
 
 def to_acquisition(dct: dict):
     return Acquisition(**dct)
+
+
+def to_calibration(dct: dict):
+    calibration_mode = getattr(calibration, dct["mode"])
+    return calibration_mode(**dct)
 
 
 def to_telescope(dct: dict):
@@ -31,6 +37,10 @@ def build_config(configuration_file: dict) -> Configuration:
     # Dictionary -> Object of specific Class
     output_obj = to_output(configuration_file["output"])
     acquisition_obj = to_acquisition(configuration_file["acquisition"])
+    if "calibration" in configuration_file:
+        calibration_obj = to_calibration(configuration_file["calibration"])
+    else:
+        calibration_obj = None
     telescope_obj = to_telescope(configuration_file["telescope"])
     spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
     parameter_obj = to_parameter(configuration_file["simulation"])
@@ -41,6 +51,7 @@ def build_config(configuration_file: dict) -> Configuration:
     config = Configuration(
         output=output_obj,
         acquisition=acquisition_obj,
+        calibration=calibration_obj,
         telescope=telescope_obj,
         spectrograph=spectrograph_obj,
         parameters=parameter_obj

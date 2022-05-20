@@ -6,10 +6,13 @@ from .characteristics import Characteristics
 class Acquisition:
     def __init__(self,
                  sed: sd.Sed,
-                 sky: Sky,
-                 characteristics: Characteristics
+                 characteristics: Characteristics,
+                 sky: Sky = None
                  ) -> None:
         sed_class = getattr(sd, sed["sed_type"])
         self.sed = sed_class(**sed)
-        self.sky = Sky(**sky)
+        if sky is not None:
+            self.sky = Sky(**sky)
+        else:
+            self.sky = Sky(-1, -1, -1, -1, active=False)
         self.characteristics = Characteristics(**characteristics)

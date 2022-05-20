@@ -9,17 +9,9 @@ from ..tool import magnitude
 class Sed:
     def __init__(
         self,
-        sed_type: str,
-        band: str,
-        magnitude: float,               # [-]
-        magnitude_system: str,           # ["Vega" or "AB"],
-        bandpass_normalization: bool = True
+        sed_type: str
     ) -> None:
         self.sed_type = sed_type
-        self.band = band
-        self.magnitude = magnitude
-        self.magnitude_system = magnitude_system
-        self.bandpass_normalization = bandpass_normalization
         # SED wavelength is indipendent from the instrument
         self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
 
@@ -55,8 +47,13 @@ class Blackbody(Sed):
         temperature: float,              # K
         bandpass_normalization: bool = True
     ) -> None:
-        super().__init__(sed_type, band, magnitude, magnitude_system, bandpass_normalization)
+        super().__init__(sed_type)
+        self.band = band
+        self.magnitude = magnitude
+        self.magnitude_system = magnitude_system
+        self.bandpass_normalization = bandpass_normalization
         self.temperature = temperature
+        self.calibration = False
 
     def get_flux(self):
         self.flux = 8 * constants.pi * constants.h * constants.c ** 2 / ((self.wavelength / 10 ** 10) ** 5 * (
@@ -78,13 +75,62 @@ class Powerlaw(Sed):
         index: float,
         bandpass_normalization: bool = True
     ) -> None:
-        super().__init__(sed_type, band, magnitude, magnitude_system, bandpass_normalization)
+        super().__init__(sed_type)
+        self.band = band
+        self.magnitude = magnitude
+        self.magnitude_system = magnitude_system
+        self.bandpass_normalization = bandpass_normalization
         self.index = index
+        self.calibration = False
 
     def get_flux(self):
         self.flux = np.power(self.wavelength, self.index)  # J/(s * m2 * m)
 
         self.flux = unit_converter.flux(self.flux, "J/(s * m^3)",
+                                        "photons/cm^2/s/A", self.wavelength)
+
+        return self.wavelength, self.flux
+
+
+class Flat(Sed):
+    def __init__(
+        self,
+        sed_type: str,
+        energy: float
+    ) -> None:
+        super().__init__(sed_type)
+        self.energy = energy
+        self.calibration = True
+
+    def get_flux(self):
+        self.flux = np.full(len(self.wavelength), self.energy)
+
+        self.flux = unit_converter.flux(self.flux, "ergs/cm^2/s/A",
+                                        "photons/cm^2/s/A", self.wavelength)
+
+        return self.wavelength, self.flux
+
+
+class Lamp(Sed):
+    def __init__(
+        self,
+        sed_type: str,
+        spectrum_file: float
+    ) -> None:
+        super().__init__(sed_type)
+        self.spectrum_file = spectrum_file
+        self.calibration = True
+
+    def get_flux(self):
+        try:
+            sed_file = np.loadtxt(self.spectrum_file, comments='#')
+        except Exception as e:
+            print(e)
+
+        self.flux = np.interp(
+            self.wavelength, sed_file.T[0], sed_file.T[1])  # 0: Wavelength [A], 1: Flux [ergs/s/cm^2/A]
+
+        self.flux = unit_converter.flux(self.flux, "ergs/cm^2/s/A",
                                         "photons/cm^2/s/A", self.wavelength)
 
         return self.wavelength, self.flux
@@ -100,8 +146,13 @@ class Spectrum(Sed):
         spectrum_file: float,
         bandpass_normalization: bool = True
     ) -> None:
-        super().__init__(sed_type, band, magnitude, magnitude_system, bandpass_normalization)
+        super().__init__(sed_type)
+        self.band = band
+        self.magnitude = magnitude
+        self.magnitude_system = magnitude_system
+        self.bandpass_normalization = bandpass_normalization
         self.spectrum_file = spectrum_file
+        self.calibration = False
 
     def get_flux(self):
         try:

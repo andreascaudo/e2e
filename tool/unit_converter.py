@@ -253,9 +253,10 @@ def wavelength(wavelength, frm, to):
 
 
 # TEST
-'''
-print(flux_converter(3.6*10**-17, "ergs/cm^2/s/A", "photons/cm^2/s/A", 5550))  # 1.004 x 10^-5
 
+# print(flux(5.19*10**-12, "ergs/cm^2/s/A",
+#      "photons/cm^2/s/A", 21400))  # 1.004 x 10^-5
+'''
 print(flux_converter(3.631*10**-5, "Jy", "photons/cm^2/s/A", 5500)) #9.9 x 10^-6
 
 print(flux_converter(3.631*10**-5, "Jy", "ergs/cm^2/s/Hz")) #3.6 x 10^-28
