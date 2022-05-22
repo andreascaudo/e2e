@@ -14,6 +14,20 @@ def gaussian_distribution(x, y, counts, refx, refy, sx, sy):
     peak = counts / (2*sx*sy*math.pi)
     return peak * np.exp(-((x - refx)**2/(2*(sx**2)) + (y - refy)**2/(2*(sy**2))))
 
+# Round floats down to keep one non-zero decimal only
+
+
+@njit()
+def myround(n):
+    if n == 0:
+        return 0
+    sgn = -1 if n < 0 else 1
+    scale = int(-math.floor(math.log10(abs(n))))
+    if scale <= 0:
+        scale = 1
+    factor = 10**scale
+    return sgn*math.floor(abs(n)*factor)/factor
+
 
 def interp(x, y, new_x, fill_value, kind="linear"):
     function = interpolate.interp1d(x, y, kind=kind, fill_value=fill_value)
