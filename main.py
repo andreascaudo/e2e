@@ -14,7 +14,7 @@ from itertools import repeat
 from tqdm import tqdm
 from os import path
 
-DEBUG = False
+DEBUG = True
 TIME = False
 PARALLEL = False
 
