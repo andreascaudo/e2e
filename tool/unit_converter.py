@@ -250,6 +250,9 @@ def wavelength(wavelength, frm, to):
         # TO A
         if(to == WAVELENGTH_UNIT_OF_MEASURE[2]):
             return wavelength * 10**10
+        # TO nm
+        if(to == WAVELENGTH_UNIT_OF_MEASURE[1]):
+            return wavelength * 10**9
 
 
 # TEST

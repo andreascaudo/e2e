@@ -78,10 +78,8 @@ def run(configuration: Configuration):
 
     if parameter.orders_index != None:
         orders = np.array(parameter.orders_index)
-        print(orders)
     else:
         orders = np.arange(0, spectrograph.len_n_orders)
-        print(orders)
     #orders = np.array([15, 14, 7, 6, 1, 0])
     #orders = np.array([15])
 
@@ -175,6 +173,7 @@ def calculation(i, configuration):
     # ---------------------------------------------------------------------
     # order and single-order-table
     order_number = spectrograph.n_orders[i]
+    print("Order Number: ", str(order_number))
     order = spectrograph.order_table[spectrograph.order_table.T[0]
                                      == order_number]
     # wavlength vector in meters
@@ -279,10 +278,10 @@ def calculation(i, configuration):
     #    parameter.pixel_oversampling
     # for j in tqdm(v1):
 
-    #rng = range(0, order_len_wavelength_subpix-1)
-    # rng = range(1500 * parameter.pixel_oversampling,
-    #            1600 * parameter.pixel_oversampling)
-    rng = np.array([1000])*parameter.pixel_oversampling
+    rng = range(0, order_len_wavelength_subpix-1)
+    # rng = range(1050 * parameter.pixel_oversampling,
+    #            1100 * parameter.pixel_oversampling)
+    #rng = np.array([1000])*parameter.pixel_oversampling
     #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
 
     for j in tqdm(rng):
@@ -427,6 +426,10 @@ def calculation(i, configuration):
         # detector_conv = tools.convolve(
         #    detector_rotated, psf_bin)
 
+        if DEBUG:
+            plot.detector("Order: " + str(i) + ": Slit Image",
+                          detector_rotated)
+
         detector_conv = tools.convolve(detector_rotated, psf_bin)
 
         # detector_conv = tools.convolve2D(detector_rotated, psf_bin) # DO NOT use "same" condition
@@ -441,7 +444,6 @@ def calculation(i, configuration):
 
         ref_x = order_x_subpix[j] + (spectrograph.subpixel_edge/2)
         ref_y = order_y_subpix[j]
-
         ref_y_start = int(ref_y - (np.floor(detector_conv.shape[0]/2))) - 1
         ref_y_end = int(ref_y_start + detector_conv.shape[0])
         ref_x_start = int(ref_x - (np.floor(detector_conv.shape[1]/2))) - 1

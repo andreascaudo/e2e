@@ -4,6 +4,7 @@ from ..instrument import spectrograph
 from ..tool import unit_converter
 from ..tool import zp_norm
 from ..tool import magnitude
+from ..tool import tools
 
 
 class Sed:
@@ -12,12 +13,11 @@ class Sed:
         sed_type: str
     ) -> None:
         self.sed_type = sed_type
-        # SED wavelength is indipendent from the instrument
-        self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
 
     def normalize(self):
         if self.magnitude_system == "AB":
-            self.magnitude = magnitude.ab_to_vega_converter(self.magnitude)
+            self.magnitude = magnitude.ab_to_vega_converter(
+                self.magnitude, self.band)
             self.magnitude_system = "Vega"
 
         lambda_0, zeropoint = magnitude.get_vega_flux_zeropoints(
@@ -54,6 +54,7 @@ class Blackbody(Sed):
         self.bandpass_normalization = bandpass_normalization
         self.temperature = temperature
         self.calibration = False
+        self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
 
     def get_flux(self):
         self.flux = 8 * constants.pi * constants.h * constants.c ** 2 / ((self.wavelength / 10 ** 10) ** 5 * (
@@ -82,6 +83,7 @@ class Powerlaw(Sed):
         self.bandpass_normalization = bandpass_normalization
         self.index = index
         self.calibration = False
+        self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
 
     def get_flux(self):
         self.flux = np.power(self.wavelength, self.index)  # J/(s * m2 * m)
@@ -101,6 +103,7 @@ class Flat(Sed):
         super().__init__(sed_type)
         self.energy = energy
         self.calibration = True
+        self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
 
     def get_flux(self):
         self.flux = np.full(len(self.wavelength), self.energy)
@@ -126,6 +129,9 @@ class Lamp(Sed):
             sed_file = np.loadtxt(self.spectrum_file, comments='#')
         except Exception as e:
             print(e)
+
+        delta_lambda = tools.myround(sed_file[1, 0] - sed_file[0, 0])
+        self.wavelength = np.arange(1000, 25000, delta_lambda)  # Angstrom
 
         self.flux = np.interp(
             self.wavelength, sed_file.T[0], sed_file.T[1])  # 0: Wavelength [A], 1: Flux [ergs/s/cm^2/A]
@@ -159,6 +165,9 @@ class Spectrum(Sed):
             sed_file = np.loadtxt(self.spectrum_file, comments='#')
         except Exception as e:
             print(e)
+
+        delta_lambda = tools.myround(sed_file[1, 0] - sed_file[0, 0])
+        self.wavelength = np.arange(1000, 25000, delta_lambda)  # Angstrom
 
         self.flux = np.interp(
             self.wavelength, sed_file.T[0], sed_file.T[1])  # 0: Wavelength [A], 1: Flux [ergs/s/cm^2/A]
