@@ -172,10 +172,10 @@ def calculation(i, configuration):
 
     # ---------------------------------------------------------------------
     # order and single-order-table
-    order_number = spectrograph.n_orders[i]
+    order_number = spectrograph.grating.n_orders[i]
     print("Order Number: ", str(order_number))
-    order = spectrograph.order_table[spectrograph.order_table.T[0]
-                                     == order_number]
+    order = spectrograph.grating.order_table[spectrograph.grating.order_table.T[0]
+                                             == order_number]
     # wavlength vector in meters
     wavelength = unit_converter.wavelength(
         order.T[2], "um", "m")  # in meters
