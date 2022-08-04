@@ -16,25 +16,9 @@ class Spectrograph:
         arm: str,                       # Spectrograph Arm
         grating_type: str,                      # Grating Type
 
-        optical_wavelength_file: str,
-        optical_rtc_psf_map_file: str,
         orders_table_file: str,
 
-        # Full Width Half Maximum
-        fwhm_instrument: float,
-
-        # Common Path f numbers (Pre-Slit unit)
-
-        common_path_f_in: float,        # [-]
-        common_path_f_out: float,       # [-]
-
-        # Common Path anamorphic factor (Pre-Slit unit)
-
-        common_path_AFxy: float,
-
         # Slicing
-
-        n_slice: int,                   # [-]
 
         slit_size_x: list,              # [arcsec]
         slit_size_y: list,              # [arcsec]
@@ -85,8 +69,6 @@ class Spectrograph:
         self.arm = arm
         self.grating_type = grating_type
 
-        self.optical_wavelength_file = optical_wavelength_file
-        self.optical_rtc_psf_map_file = optical_rtc_psf_map_file
         self.orders_table_file = orders_table_file
 
         if n_order_start > n_order_end:
@@ -125,12 +107,6 @@ class Spectrograph:
         self.camera_fdr_file = load_fdr(camera_fdr_file)
         self.qe_detector_file = load_fdr(qe_detector_file)
         self.psf_map_file = load_fdr(psf_map_file)
-
-        self.fwhm_instrument = fwhm_instrument
-
-        self.cp_f_in = common_path_f_in
-        self.cp_f_out = common_path_f_out
-        self.n_slice = n_slice
 
         self.slit_size_x = slit_size_x
         self.slit_size_y = slit_size_y

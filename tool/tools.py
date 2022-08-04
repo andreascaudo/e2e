@@ -74,10 +74,12 @@ def object_slit(counts, f_number, pupil_equivalent_diameter, dimension_pixel, se
     refx = -((image_size[0]/2) - np.round(image_size[0]/2))
     refy = ((image_size[1]/2) - np.round(image_size[1]/2))
 
+    # focal length [mm] = f/N * Pupil diameter [cm -> mm]
     f = f_number * pupil_equivalent_diameter * 10
     plate_scale = (f/206265)*1000
-    FWHM_x = plate_scale * seeing  # in um
-    FWHM_y = plate_scale * seeing  # in um
+
+    FWHM_x = plate_scale * seeing  # in um/arcsec
+    FWHM_y = plate_scale * seeing  # in um/arcsec
 
     sx = (FWHM_x/(2.35*pixelsz))*ps_y_fact
     sy = (FWHM_y/(2.35*pixelsz))

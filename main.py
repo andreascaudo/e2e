@@ -14,7 +14,7 @@ from itertools import repeat
 from tqdm import tqdm
 from os import path
 
-DEBUG = True
+DEBUG = False
 TIME = False
 PARALLEL = False
 
@@ -278,10 +278,10 @@ def calculation(i, configuration):
     #    parameter.pixel_oversampling
     # for j in tqdm(v1):
 
-    rng = range(0, order_len_wavelength_subpix-1)
+    #rng = range(0, order_len_wavelength_subpix-1)
     # rng = range(1050 * parameter.pixel_oversampling,
     #            1100 * parameter.pixel_oversampling)
-    #rng = np.array([1000])*parameter.pixel_oversampling
+    rng = np.array([1000])*parameter.pixel_oversampling
     #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
 
     for j in tqdm(rng):
