@@ -1,4 +1,3 @@
-from re import sub
 import numpy as np
 import scipy.io
 import math
@@ -32,14 +31,7 @@ class Spectrograph:
 
         # Efficiency
         telescope_fdr_file: str,
-        commonpath_ir_fdr_file: str,
-        commonpath_vis_fdr_file: str,
-        collimator_fdr_file: str,
-        field_mirror_fdr_file: str,
-        cross_disperser_fdr_file: str,
-        fold_mirror_fdr_file: str,
-        camera_fdr_file: str,
-        qe_detector_file: str,
+        instrument_fdr_file: str,
         psf_map_file: str
 
 
@@ -51,14 +43,7 @@ class Spectrograph:
         self.grating = grating_type(**grating)
 
         self.telescope_fdr_file = load_fdr(telescope_fdr_file)
-        self.commonpath_ir_fdr_file = load_fdr(commonpath_ir_fdr_file)
-        self.commonpath_vis_fdr_file = load_fdr(commonpath_vis_fdr_file)
-        self.collimator_fdr_file = load_fdr(collimator_fdr_file)
-        self.field_mirror_fdr_file = load_fdr(field_mirror_fdr_file)
-        self.cross_disperser_fdr_file = load_fdr(cross_disperser_fdr_file)
-        self.fold_mirror_fdr_file = load_fdr(fold_mirror_fdr_file)
-        self.camera_fdr_file = load_fdr(camera_fdr_file)
-        self.qe_detector_file = load_fdr(qe_detector_file)
+        self.instrument_fdr_file = load_fdr(instrument_fdr_file)
         self.psf_map_file = load_fdr(psf_map_file)
 
         self.slit_size_x = slit_size_x
@@ -68,94 +53,23 @@ class Spectrograph:
 
         self.wavematrix, self.b_phase, self.b, self.len_n_orders, self.n_p = self.grating.get_efficiency()
 
-        # CommonPath IR
-        wavetemp = math.floor(self.wavematrix[0][0]*1000)
-        index_start = np.where(self.commonpath_vis_fdr_file == wavetemp)[0]
-        index_end = np.where(self.commonpath_vis_fdr_file == 849)[0]
-        # Extrap of data from UV-VIS
-        CPVISnofilt_2_800 = self.commonpath_vis_fdr_file[index_start[0]
-            :index_end[0]+1].T[1]
-        CPNIRnofilt_2_800 = 1 - (CPVISnofilt_2_800/100)
-        # Re definition of CPIR_fdr
-        vect_800_849 = np.arange((wavetemp/1000), 0.850, 0.001)
-        CPIR_fdr_800 = np.c_[vect_800_849, CPNIRnofilt_2_800]
-        CPIR_fdr = np.concatenate(
-            (CPIR_fdr_800, self.commonpath_ir_fdr_file))
-
         # GRATING
-        self.grating_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.grating_rsc = np.zeros((self.len_n_orders, self.n_p))
-
         self.telescope_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.commonpath_ir_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.collimator_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.field_mirror_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.cross_disperser_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.fold_mirror_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.camera_fdr = np.zeros((self.len_n_orders, self.n_p))
-        self.qe_detector = np.zeros((self.len_n_orders, self.n_p))
+        self.instrument_fdr = np.zeros((self.len_n_orders, self.n_p))
 
         for i in range(0, self.len_n_orders):
-            # Rescale grating efficiency
-            self.grating_fdr[i] = tools.interp(
-                self.grating.grating_lambda, self.grating.grating_efficiency, self.wavematrix[i], fill_value="extrapolate")
-            self.grating_fdr[i] = self.grating_fdr[i] * self.b[i]
-
             self.telescope_fdr[i] = tools.interp(
                 self.telescope_fdr_file.T[0], self.telescope_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate")
-            self.commonpath_ir_fdr[i] = tools.interp(
-                CPIR_fdr.T[0], CPIR_fdr.T[1], self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.collimator_fdr[i] = tools.interp(
-                self.collimator_fdr_file.T[0], self.collimator_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.field_mirror_fdr[i] = tools.interp(
-                self.field_mirror_fdr_file.T[0], self.field_mirror_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.cross_disperser_fdr[i] = tools.interp(
-                self.cross_disperser_fdr_file.T[0], self.cross_disperser_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.fold_mirror_fdr[i] = tools.interp(
-                self.fold_mirror_fdr_file.T[0], self.fold_mirror_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.camera_fdr[i] = tools.interp(self.camera_fdr_file.T[0], self.camera_fdr_file.T[1],
-                                              self.wavematrix[i], fill_value="extrapolate", kind="nearest")
-            self.qe_detector[i] = tools.interp(self.qe_detector_file.T[0], self.qe_detector_file.T[1],
-                                               self.wavematrix[i], fill_value="extrapolate", kind="nearest")
+
+            self.instrument_fdr[i] = tools.interp(
+                self.instrument_fdr_file.T[0], self.instrument_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate")
 
         self.psf_map = np.flip(self.psf_map_file["PSFmap_Struct"][0])
 
-        '''
-        for len_i in range(0, self.len_n_orders):
-            plt.plot(self.wavematrix[len_i], self.b[len_i])
-
-        plt.show()
-
-        for len_i in range(0, self.len_n_orders):
-            plt.plot(self.wavematrix[len_i], self.grating_fdr[len_i])
-
-        plt.show()
-        '''
-
         self.wavematrix = unit_converter.wavelength(self.wavematrix, "um", "A")
 
-        self.telescope_spectrograph_efficiency_fdr = self.telescope_fdr * self.commonpath_ir_fdr * self.collimator_fdr * \
-            self.field_mirror_fdr * self.grating_fdr * self.cross_disperser_fdr * \
-            self.fold_mirror_fdr * self.camera_fdr * self.qe_detector
+        self.telescope_spectrograph_efficiency_fdr = self.telescope_fdr * self.instrument_fdr
 
-        self.spectrograph_efficiency_fdr = self.commonpath_ir_fdr * self.collimator_fdr * self.field_mirror_fdr * \
-            self.grating_fdr * self.cross_disperser_fdr * \
-            self.fold_mirror_fdr * self.camera_fdr * self.qe_detector
-
-        '''
-        for len_i in range(0, self.len_n_orders):
-            plt.plot(self.wavematrix[len_i],
-                     self.telescope_spectrograph_efficiency_fdr[len_i])
-
-        plt.show()
-
-        for len_i in range(0, self.len_n_orders):
-            plt.plot(self.wavematrix[len_i],
-                     self.spectrograph_efficiency_fdr[len_i])
-
-        plt.show()
-
-        '''
         self.n_pixels = n_pixels
         self.dimension_pixel = dimension_pixel
 

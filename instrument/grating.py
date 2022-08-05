@@ -33,8 +33,6 @@ class Echelle(Grating):
 
         n_order_start,
         n_order_end,
-        grating_lambda: list,
-        grating_efficiency: list,
         orders_table_file: str
     ) -> None:
         super().__init__(line_density, blaze_angle, eps_angle, ilg, n_p)
@@ -42,9 +40,6 @@ class Echelle(Grating):
 
         self.n_order_start = n_order_start
         self.n_order_end = n_order_end
-
-        self.grating_lambda = grating_lambda
-        self.grating_efficiency = grating_efficiency
 
         # Orders Information
         if n_order_start > n_order_end:
@@ -81,7 +76,7 @@ class Echelle(Grating):
         b = np.zeros((self.len_n_orders, self.n_p))
 
         # d=grating const and N=number of lines
-        d = 1/self.line_density  # [um]
+        d = 1/self.line_density  # [um/l]
         N = round(self.ilg*self.line_density*1000)  # [-]
 
         for i in range(0, self.len_n_orders):
@@ -98,6 +93,8 @@ class Echelle(Grating):
 
         b = cut_spurius_efficiency(b, self.len_n_orders)
 
+        # B is now deprecated, was used to adjust the grating efficiency
+        # NOW grating must be included in instrument efficiency file already adjusted!
         return wave_matrix, b_phase, b, self.len_n_orders, self.n_p
 
 
