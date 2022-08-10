@@ -16,6 +16,8 @@ class Parameter:
         psf_pupil_sampling: float,
         psf_field_sampling: int,
         psf_map_pixel_number: int,
+
+        # Non-mandatory parameters
         # Order to Simulate
         orders_index: list = None
     ):

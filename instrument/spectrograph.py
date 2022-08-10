@@ -3,6 +3,7 @@ import scipy.io
 import math
 from . import grating as grating_obj
 from .grating import Grating
+from .image_slicer import Slice
 from ..tool import unit_converter
 from ..tool import tools
 
@@ -32,8 +33,10 @@ class Spectrograph:
         # Efficiency
         telescope_fdr_file: str,
         instrument_fdr_file: str,
-        psf_map_file: str
+        psf_map_file: str,
 
+        # Non-mandatory parameters
+        image_slicer: dict = None
 
     ) -> None:
         self.name = name
@@ -76,6 +79,16 @@ class Spectrograph:
         self.wavelength_min = wavelength_min
         self.wavelength_max = wavelength_max
         self.wavelength_band = np.arange(wavelength_min, wavelength_max, 1)
+
+        # Genrate a set of slices based on two cases:
+        # 1. If the user provides an image slicer, then use those slices
+        # 2. If the user does not provide an image slicer, then use one slice per order
+        self.slices = []
+        if image_slicer != None:
+            for i in range(0, image_slicer["n_slices"]):
+                self.slices.append(Slice(i+1, image_slicer["shift_x"][i]))
+        else:
+            self.slices.append(Slice(1, None))
 
     def set_subpixels(self, pixel_oversampling, psf_map_pixel_number):
         self.n_pixels_subpixel = self.n_pixels * pixel_oversampling
