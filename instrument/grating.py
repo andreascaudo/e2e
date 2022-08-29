@@ -15,7 +15,6 @@ class Grating:
         self.line_density = line_density
         self.blaze_angle = blaze_angle
         self.eps_angle = eps_angle
-        self.ilg = ilg
         self.n_p = n_p * 3
 
 
@@ -71,13 +70,14 @@ class Echelle(Grating):
     # Different for each grating
 
     def get_efficiency(self):
+        print("1")
+        print(self.n_p)
         wave_matrix = np.zeros((self.len_n_orders, self.n_p))
         b_phase = np.zeros((self.len_n_orders, self.n_p))
         b = np.zeros((self.len_n_orders, self.n_p))
 
         # d=grating const and N=number of lines
         d = 1/self.line_density  # [um/l]
-        N = round(self.ilg*self.line_density*1000)  # [-]
 
         for i in range(0, self.len_n_orders):
             wave_matrix[i] = np.linspace(

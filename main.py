@@ -90,14 +90,14 @@ def run(configuration: Configuration):
     if PARALLEL:
         with futures.ProcessPoolExecutor() as executor:
             parallel_results = executor.map(
-                calculation, orders, repeat(configuration))
+                order_calculation, orders, repeat(configuration))
 
             for i, result in enumerate(parallel_results):
                 spectrograph.detector_subpixel[:, :, result[2]] = result[0]
                 order_y_subpix_min[result[2]] = result[1]
     else:
         for order in orders:
-            spectrograph.detector_subpixel[:, :, order], order_y_subpix_min[order], i = calculation(
+            spectrograph.detector_subpixel[:, :, order], order_y_subpix_min[order], i = order_calculation(
                 order, configuration)
 
  # -------------------------------------------------------------------------
@@ -150,7 +150,7 @@ def run(configuration: Configuration):
     print("--- %s seconds ---" % (time.time() - start_time))
 
 
-def calculation(i, configuration):
+def order_calculation(i, configuration):
     # Unpack configuration
     telescope = configuration.telescope
     spectrograph = configuration.spectrograph
@@ -169,6 +169,9 @@ def calculation(i, configuration):
     # for i in tqdm(orders_loop):  # [4]
     print("Start Order: ", str(i))
     order_time = time.time()
+
+    for slice in range(0, len(spectrograph.slices)):
+        slice_calculation(i, slice, configuration)
 
     # ---------------------------------------------------------------------
     # order and single-order-table
@@ -192,6 +195,7 @@ def calculation(i, configuration):
         order.T[3][-1] * parameter.pixel_oversampling)
     order_x_subpix_new = np.arange(
         order_x_subpix_start, order_x_subpix_end+1, 1)
+
     # Lambda
     order_wavelength_subpix = tools.interp(
         order_x_subpix, wavelength, order_x_subpix_new, "extrapolate", "cubic")
@@ -283,6 +287,9 @@ def calculation(i, configuration):
     #            1100 * parameter.pixel_oversampling)
     rng = np.array([1000])*parameter.pixel_oversampling
     #rng = np.arange(271, 288, 1)*parameter.pixel_oversampling
+
+    print("2")
+    print(order_len_wavelength_subpix)
 
     for j in tqdm(rng):
         if TIME:
@@ -470,3 +477,95 @@ def calculation(i, configuration):
                       spectrograph.detector_subpixel[:, :, i])
 
     return spectrograph.detector_subpixel[:, :, i], order_y_subpix_min[i], i
+
+
+def slice_calculation(i, slice, configuration):
+    # Unpack configuration
+    telescope = configuration.telescope
+    spectrograph = configuration.spectrograph
+    calibration = configuration.calibration
+    acquisition = configuration.acquisition
+    parameter = configuration.parameters
+
+    # ---------------------------------------------------------------------
+    # slice and single-order-table
+    order_number = spectrograph.grating.n_orders[i]
+    slice_number = spectrograph.slices[slice].slice_id
+    print("Slice Number: ", str(slice_number))
+    order = spectrograph.grating.order_table[spectrograph.grating.order_table.T[0] == order_number]
+    slice = order[spectrograph.grating.order_table.T[1] ==
+                  slice_number] if len(spectrograph.slices) > 1 else order
+
+    if len(spectrograph.slices) > 1:
+        # Slice Index Table (SIT), due to the fact that the order table without slice has one column less
+        SIT = 1
+    else:
+        SIT = 0
+
+    # wavlength vector in meters
+    wavelength = unit_converter.wavelength(
+        slice.T[2+SIT], "um", "m")  # in meters
+    delta_lambda = abs(wavelength[0]-wavelength[1])
+    # ---------------------------------------------------------------------
+
+    # ---------------------------------------------------------------------
+    # ### Sub-Pixel scale: x, lambda, y, Sx
+    # X
+    order_x_subpix = slice.T[3+SIT] * parameter.pixel_oversampling
+    order_x_subpix_start = math.ceil(
+        slice.T[3+SIT][0] * parameter.pixel_oversampling)
+    order_x_subpix_end = math.ceil(
+        slice.T[3+SIT][-1] * parameter.pixel_oversampling)
+    order_x_subpix_new = np.arange(
+        order_x_subpix_start, order_x_subpix_end+1, 1)
+
+    # Lambda
+    order_wavelength_subpix = tools.interp(
+        order_x_subpix, wavelength, order_x_subpix_new, "extrapolate", "cubic")
+    delta_lambda_subpix = np.diff(order_wavelength_subpix)
+
+    # Y
+    order_y_subpix = slice.T[4+SIT] * parameter.pixel_oversampling
+    order_y_subpix = tools.interp(
+        order_x_subpix, order_y_subpix, order_x_subpix_new, "extrapolate", "cubic")
+
+    # Sx
+    order_sx_subpix = slice.T[5+SIT]
+    order_sx_subpix = tools.interp(
+        order_x_subpix, order_sx_subpix, order_x_subpix_new, "extrapolate", "cubic")
+
+    # DELATE PSF_XX PSF_YY BEFORE CONTNUING
+    # Tilt Order
+    order_tilt = slice.T[_+SIT]
+    order_tilt = tools.interp(
+        order_x_subpix, order_tilt, order_x_subpix_new, "extrapolate", "cubic")
+
+    # reference sub-pixel map
+    order_x_subpix = order_x_subpix_new
+    order_y_subpix = np.round(order_y_subpix)
+    order_len_wavelength_subpix = len(order_wavelength_subpix)
+
+    # ---------------------------------------------------------------------
+    # Load wavematrix in meters x order
+    spectrograph_wavematrix_order_i = unit_converter.wavelength(
+        spectrograph.wavematrix[i], "A", "m")
+    # Efficiency interpolation and application
+    # SKY
+    order_total_efficiency_sky = np.zeros((order_len_wavelength_subpix, 2))
+    order_total_efficiency_sky.T[0] = order_wavelength_subpix
+    order_total_efficiency_sky.T[1] = tools.interp(
+        spectrograph_wavematrix_order_i, acquisition.sky.sky_efficiency_matrix[i], order_wavelength_subpix, "extrapolate", "cubic")
+    # OBJ
+    order_total_efficiency_object = np.zeros(
+        (order_len_wavelength_subpix, 2))
+    order_total_efficiency_object.T[0] = order_wavelength_subpix
+    order_total_efficiency_object.T[1] = tools.interp(
+        spectrograph_wavematrix_order_i, acquisition.sed.sed_total_efficincy[i], order_wavelength_subpix, "extrapolate", "cubic")
+
+    # ---------------------------------------------------------------------
+    # Initializing and interpolate PSF map
+    psf_map_shape = ((parameter.psf_field_sampling,
+                      parameter.psf_field_sampling, order_len_wavelength_subpix))
+    psf_map = tools.interpolate_psf_map(
+        psf_map_shape, spectrograph.psf_map[i][1], wavelength, order_wavelength_subpix)
+    # --------------------------------------> ALTRO PUNTO DA CONTROLLARE E FAR QUADRARE CON SOXS
