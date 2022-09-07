@@ -67,7 +67,11 @@ class Spectrograph:
             self.instrument_fdr[i] = tools.interp(
                 self.instrument_fdr_file.T[0], self.instrument_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate")
 
-        self.psf_map = np.flip(self.psf_map_file["PSFmap_Struct"][0])
+        # TBD: When implementing CUBES remember to check psf map vs MATLAB
+        if self.psf_map_file[0][0] < self.psf_map_file[-1][0]:
+            self.psf_map = np.flip(self.psf_map_file)
+        else:
+            self.psf_map = self.psf_map_file
 
         self.wavematrix = unit_converter.wavelength(self.wavematrix, "um", "A")
 
@@ -90,18 +94,22 @@ class Spectrograph:
         else:
             self.slices.append(Slice(1, None))
 
+        self.len_n_slices = len(self.slices)
+
     def set_subpixels(self, pixel_oversampling, psf_map_pixel_number):
         self.n_pixels_subpixel = self.n_pixels * pixel_oversampling
         self.psf_map_pixel_number_subpixel = psf_map_pixel_number * pixel_oversampling
         self.subpixel_edge = self.psf_map_pixel_number_subpixel * 2
         self.detector_subpixel = np.zeros(
-            (310*pixel_oversampling, self.n_pixels_subpixel + self.subpixel_edge, self.len_n_orders))
+            (310*pixel_oversampling, self.n_pixels_subpixel + self.subpixel_edge, self.len_n_orders,  self.len_n_slices))
 
 
 def load_fdr(file):
     try:
         if file.endswith(".mat"):
             return scipy.io.loadmat(file)
+        elif file.endswith(".npy"):
+            return np.load(file, allow_pickle=True)
         else:
             return np.loadtxt(file, delimiter=" ")
     except Exception as e:

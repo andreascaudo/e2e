@@ -70,8 +70,6 @@ class Echelle(Grating):
     # Different for each grating
 
     def get_efficiency(self):
-        print("1")
-        print(self.n_p)
         wave_matrix = np.zeros((self.len_n_orders, self.n_p))
         b_phase = np.zeros((self.len_n_orders, self.n_p))
         b = np.zeros((self.len_n_orders, self.n_p))
