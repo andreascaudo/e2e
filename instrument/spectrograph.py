@@ -54,7 +54,7 @@ class Spectrograph:
         self.slit_size_x_calibration = slit_size_x_calibration
         self.slit_size_y_calibration = slit_size_y_calibration
 
-        self.wavematrix, self.b_phase, self.b, self.len_n_orders, self.n_p = self.grating.get_efficiency()
+        self.wavematrix, self.len_n_orders, self.n_p = self.grating.get_efficiency()
 
         # GRATING
         self.telescope_fdr = np.zeros((self.len_n_orders, self.n_p))
@@ -90,7 +90,7 @@ class Spectrograph:
         self.slices = []
         if image_slicer != None:
             for i in range(0, image_slicer["n_slices"]):
-                self.slices.append(Slice(i+1, image_slicer["shift_x"][i]))
+                self.slices.append(Slice(i+1, image_slicer["shift_arc"][i]))
         else:
             self.slices.append(Slice(1, None))
 

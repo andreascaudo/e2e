@@ -1,3 +1,5 @@
+from astropy.io import fits
+import matplotlib.pyplot as plt
 import math
 from charset_normalizer import detect
 from scipy import ndimage
@@ -32,6 +34,15 @@ def myround(n):
 def interp(x, y, new_x, fill_value, kind="linear"):
     function = interpolate.interp1d(x, y, kind=kind, fill_value=fill_value)
     return function(new_x)
+
+
+# Return Plate Scale in um/arcsec
+# ----------------------> Pupil in cm
+def get_plate_scale(f_number, pupil_equivalent_diameter):
+    # focal length [mm] = f/N * Pupil diameter [cm -> mm]
+    f = f_number * pupil_equivalent_diameter * 10
+    plate_scale = (f/206265)*1000  # um/arcsec
+    return plate_scale
 
 
 def integration(lam, delta_lam, flux):
@@ -76,7 +87,7 @@ def object_slit(counts, f_number, pupil_equivalent_diameter, dimension_pixel, se
 
     # focal length [mm] = f/N * Pupil diameter [cm -> mm]
     f = f_number * pupil_equivalent_diameter * 10
-    plate_scale = (f/206265)*1000
+    plate_scale = (f/206265)*1000  # um/arcsec
 
     FWHM_x = plate_scale * seeing  # in um/arcsec
     FWHM_y = plate_scale * seeing  # in um/arcsec
@@ -282,3 +293,76 @@ def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
     v2 = np.linspace(1, (psf_map_pixel_number * dimension_pixel),
                      (psf_map_pixel_number * dimension_pixel))
     return v1, v2
+
+
+def add_pre_over_scan(detector):
+
+    # Rotate detector by 90 degrees
+    detector = np.rot90(detector)
+
+    new_detector = np.zeros((9920, 9296))
+    new_detector[24:1176, 0:4616] = detector[0:1152, 0:4616]
+    new_detector[24:1176, 4680:-1] = detector[0:1152, 4616:-1]
+    new_detector[1264:2416, 0:4616] = detector[1152:(2*1152), 0:4616]
+    new_detector[1264:2416, 4680:-1] = detector[1152:(2*1152), 4616:-1]
+    new_detector[2504:3656, 0:4616] = detector[(2*1152):(3*1152), 0:4616]
+    new_detector[2504:3656, 4680:-1] = detector[(2*1152):(3*1152), 4616:-1]
+    new_detector[3744:4896, 0:4616] = detector[(3*1152):(4*1152), 0:4616]
+    new_detector[3744:4896, 4680:-1] = detector[(3*1152):(4*1152), 4616:-1]
+
+    new_detector[5024:(5024+1152), 0:4616] = detector[(4*1152):(5*1152), 0:4616]
+    new_detector[5024:(5024+1152),
+                 4680:-1] = detector[(4*1152):(5*1152), 4616:-1]
+    new_detector[6264:(6264+1152), 0:4616] = detector[(5*1152):(6*1152), 0:4616]
+    new_detector[6264:(6264+1152),
+                 4680:-1] = detector[(5*1152):(6*1152), 4616:-1]
+    new_detector[7504:(7504+1152), 0:4616] = detector[(6*1152):(7*1152), 0:4616]
+    new_detector[7504:(7504+1152),
+                 4680:-1] = detector[(6*1152):(7*1152), 4616:-1]
+    new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152):(8*1152), 0:4616]
+    new_detector[8744:(8744+1152),
+                 4680:-1] = detector[(7*1152):(8*1152), 4616:-1]
+
+    # Rotate back new_detector to the original orientation
+    new_detector = np.rot90(new_detector, 3)
+    return new_detector
+
+
+def remove_pre_over_scan(detector):
+    # Rotate detector by 90 degrees
+    detector = np.rot90(detector)
+
+    new_detector = np.zeros((9216, 9216+16))
+
+    new_detector[0:1152, 0:4616] = detector[24:1176, 0:4616]
+    new_detector[0:1152, 4616:-1] = detector[24:1176, 4680:-1]
+    new_detector[1152:(2*1152), 0:4616] = detector[1264:2416, 0:4616]
+    new_detector[1152:(2*1152), 4616:-1] = detector[1264:2416, 4680:-1]
+    new_detector[(2*1152):(3*1152), 0:4616] = detector[2504:3656, 0:4616]
+    new_detector[(2*1152):(3*1152), 4616:-1] = detector[2504:3656, 4680:-1]
+    new_detector[(3*1152):(4*1152), 0:4616] = detector[3744:4896, 0:4616]
+    new_detector[(3*1152):(4*1152), 4616:-1] = detector[3744:4896, 4680:-1]
+
+    new_detector[(4*1152):(5*1152),
+                 0:4616] = detector[5024:(5024+1152), 0:4616]
+    new_detector[(4*1152):(5*1152), 4616:-
+                 1] = detector[5024:(5024+1152), 4680:-1]
+    new_detector[(5*1152):(6*1152),
+                 0:4616] = detector[6264:(6264+1152), 0:4616]
+    new_detector[(5*1152):(6*1152), 4616:-
+                 1] = detector[6264:(6264+1152), 4680:-1]
+    new_detector[(6*1152):(7*1152),
+                 0:4616] = detector[7504:(7504+1152), 0:4616]
+    new_detector[(6*1152):(7*1152), 4616:-
+                 1] = detector[7504:(7504+1152), 4680:-1]
+    new_detector[(7*1152):(8*1152),
+                 0:4616] = detector[8744:(8744+1152), 0:4616]
+    new_detector[(7*1152):(8*1152), 4616:-
+                 1] = detector[8744:(8744+1152), 4680:-1]
+
+    # Rotate back new_detector to the original orientation
+    new_detector = np.rot90(new_detector, 3)
+
+    # This still has the 16 pixels of overscan
+    # (9232, 9216)
+    return new_detector

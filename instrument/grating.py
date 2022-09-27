@@ -66,6 +66,7 @@ class Echelle(Grating):
                     self.order_table[self.order_table[:, 0] == n_ord, :][-1][2])
         except Exception as e:
             print(e)
+            exit()
 
     # Different for each grating
 
@@ -93,7 +94,61 @@ class Echelle(Grating):
 
         # B is now deprecated, was used to adjust the grating efficiency
         # NOW grating must be included in instrument efficiency file already adjusted!
-        return wave_matrix, b_phase, b, self.len_n_orders, self.n_p
+        return wave_matrix, self.len_n_orders, self.n_p
+
+
+class Binary(Grating):
+    def __init__(
+        self,
+        type: str,
+
+        line_density: float,            # [l/um] #rho
+        blaze_angle: float,             # [deg]
+        eps_angle: float,               # [deg]
+        # Efficiency
+        ilg: float,
+        n_p: float,
+
+        orders_table_file: str
+    ) -> None:
+        super().__init__(line_density, blaze_angle, eps_angle, ilg, n_p)
+        self.type_name = type
+
+        # Orders Information
+        self.n_orders = [1]
+        self.len_n_orders = len(self.n_orders)
+
+        # Load Orders Table file
+        self.orders_table_file = orders_table_file
+        try:
+            self.order_table = np.loadtxt(
+                self.orders_table_file, delimiter=" ", skiprows=1)
+
+            self.sx_wavelegnth_per_order = []
+            self.dx_wavelegnth_per_order = []
+
+            # Create from order table two list containing the wavelength min and max for each order
+            for n_ord in self.n_orders:
+                self.sx_wavelegnth_per_order.append(
+                    self.order_table[self.order_table[:, 0] == n_ord, :][0][3])
+                self.dx_wavelegnth_per_order.append(
+                    self.order_table[self.order_table[:, 0] == n_ord, :][-1][3])
+        except Exception as e:
+            print(e)
+
+    # Different for each grating
+
+    # TDB: Change name in get wavematrix, after CUBES RUN smooth
+    def get_efficiency(self):
+        wave_matrix = np.zeros((self.len_n_orders, self.n_p))
+
+        for i in range(0, self.len_n_orders):
+            wave_matrix[i] = np.linspace(
+                self.sx_wavelegnth_per_order[i], self.dx_wavelegnth_per_order[i], self.n_p)
+
+        # B is now deprecated, was used to adjust the grating efficiency
+        # NOW grating must be included in instrument efficiency file already adjusted!
+        return wave_matrix, self.len_n_orders, self.n_p
 
 
 def cut_spurius_efficiency(b, len_n_orders):
