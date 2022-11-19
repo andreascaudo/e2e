@@ -297,6 +297,13 @@ def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
 
 def add_pre_over_scan(detector):
 
+    # Adding the 16 Pixels to get 9232 in spatial direction
+    detecor_final = np.zeros(
+        (detector.shape[0]+16, detector.shape[1]))
+    detecor_final[8:-8, :] = detector
+
+    detector = detecor_final
+
     # Rotate detector by 90 degrees
     detector = np.rot90(detector)
 
@@ -363,6 +370,9 @@ def remove_pre_over_scan(detector):
     # Rotate back new_detector to the original orientation
     new_detector = np.rot90(new_detector, 3)
 
-    # This still has the 16 pixels of overscan
+    new_data = np.zeros(
+        (new_detector.shape[0]-16, new_detector.shape[1]))
+    new_data = new_detector[8:-8, :]
+
     # (9232, 9216)
-    return new_detector
+    return new_data

@@ -121,16 +121,33 @@ def run(configuration: Configuration):
  # -------------------------------------------------------------------------
     # Recombination of the orders
 
-    detector_recombined = np.zeros(
-        (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
+    # DO NOT COMMENT THIS LINE
+    # detector_recombined = np.zeros(
+    #    (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
+    # COMMENT THIS LINE
+    detector_recombined = np.zeros((3100, spectrograph.n_pixels_subpixel))
+    print(detector_recombined.shape)
 
     unkown3 = 3 if spectrograph.name == "SOXS" else 5
 
     for t in orders:
         for s in slices:
+            print("ORDER:")
+            print(order_y_subpix_min[t][s])
+            print((unkown3*spectrograph.psf_map_pixel_number_subpixel))
             yy_start = int(order_y_subpix_min[t][s] -
                            (unkown3*spectrograph.psf_map_pixel_number_subpixel)) - 1
+            print(yy_start)
             yy_end = int(yy_start + (310*parameter.pixel_oversampling))
+
+            print("Start: ", str(yy_start), "End: ", str(yy_end))
+            # COMMENT THIS LINE
+            yy_start = 0
+            yy_end = 3100
+
+            from matplotlib import pyplot as plt
+            plt.imshow(spectrograph.detector_subpixel[:, :, t, s])
+            plt.show()
 
             detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
                 spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
@@ -157,19 +174,18 @@ def run(configuration: Configuration):
 
     if spectrograph.name == "CUBES":
         # SHIFT
-        Det_s = 704
-        detector_temp = np.zeros(
-            (detector_final.shape[0], detector_final.shape[1]))
-        detector_temp[:-Det_s, :] = detector_final[Det_s:, :]
-        # Adding the 16 Pixels to get 9232 in spatial direction
-        detecor_final = np.zeros(
-            (detector_final.shape[0]+16, detector_final.shape[1]))
-        detecor_final[8:-8, :] = detector_temp
+        # DO NOT COMMENT THIS LINE
+        #Det_s = 704
+        # detector_temp = np.zeros(
+        #    (detector_final.shape[0], detector_final.shape[1]))
+        #detector_temp[:-Det_s, :] = detector_final[Det_s:, :]
+
         # Piston Counts w.r.t. to Bias-Dark
         piston = 0  # 50
-        detecor_final = detecor_final + piston
+        detector_final = detector_final + piston
         # Add pre/over scan region
-        detector_final = tools.add_pre_over_scan(detecor_final)
+        # DO NOT COMMENT THIS LINE
+        # detector_final = tools.add_pre_over_scan(detector_final)
 
     plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
                   str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
@@ -332,12 +348,12 @@ def slice_calculation(order_slice, configuration):
             slc.to_subpix(pixel_oversampling_shift)
     # ----------------------------------------------------
 
-    #temp_pixel = 1000 if spectrograph.name == "SOXS" else 2955
-    #rng = np.array([temp_pixel])*parameter.pixel_oversampling
-    # rng = range(2925 * parameter.pixel_oversampling,
-    #            2955 * parameter.pixel_oversampling)
+    # temp_pixel = 1000 if spectrograph.name == "SOXS" else 2955
+    # rng = np.array([temp_pixel])*parameter.pixel_oversampling
+    # rng = range(2640 * parameter.pixel_oversampling,
+    #            4453 * parameter.pixel_oversampling)
     rng = range(0, order_len_wavelength_subpix-1)
-    # rng = [2924 * parameter.pixel_oversampling]
+    #rng = [2924 * parameter.pixel_oversampling]
 
     for j in tqdm(rng):
         if TIME:
