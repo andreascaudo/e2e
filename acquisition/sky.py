@@ -101,13 +101,15 @@ class Radiance:
             self.wavelength = unit_converter.wavelength(
                 radiance_file.T[0], "nm", "A")  # [nm] -> [A]
         else:
-            self.wavelength = np.arange(300, 24000.1, 0.1)
+            # I Changed before was np.arange(300, 24000.1, 0.1)
+            self.wavelength = None
 
         if slit_dimension is not None:
             self.flux = unit_converter.flux(
                 radiance_file.T[1], "photons/m^2/s/µm/asec^2", "photons/cm^2/s/A", slit_dimension)  # [Ph/s/m2/µm/asec2] -> [Ph/s/cm2/A]
         else:
-            self.flux = np.zeros(len(self.wavelength))
+            # I Changed before was np.zeros(len(self.wavelength))
+            self.flux = None
 
 
 class Transimission:

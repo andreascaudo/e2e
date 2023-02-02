@@ -1,3 +1,4 @@
+import time
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import math
@@ -35,7 +36,6 @@ def interp(x, y, new_x, fill_value, kind="linear"):
     function = interpolate.interp1d(x, y, kind=kind, fill_value=fill_value)
     return function(new_x)
 
-
 # Return Plate Scale in um/arcsec
 # ----------------------> Pupil in cm
 def get_plate_scale(f_number, pupil_equivalent_diameter):
@@ -52,10 +52,20 @@ def integration(lam, delta_lam, flux):
 
     lam_vect = np.arange(l1, l2, dl)
 
-    # print(len(lam_vect))
+    # get lam in [A]
+    lam_temp = unit_converter.wavelength(lam_vect, "m", "A")
+    # Find the index of the closest wavelength in the spectrum
+    index = np.searchsorted(flux.wavelength, lam_temp)
+    # If there is no flux, return 0
+    if not flux.flux[index].any():
+        return 0
 
     spec_flux_norm_interp = interp(unit_converter.wavelength(
         flux.wavelength, "A", "m"), flux.flux, lam_vect, fill_value="extrapolate")  # flux in [phot/s/cm^2/ang] and lambda in [m]
+
+    # If there is no flux, return 0 [Just to be sure]
+    if not spec_flux_norm_interp.any():
+        return 0
 
     # E=N*h*nu -> N=E*lambda/h*c
     dl = unit_converter.wavelength(dl, "m", "A")
@@ -219,13 +229,21 @@ def interpolate_psf_map(psf_map_shape, order_psf_map_cube, wavelength, order_wav
 
 
 def interpolate_griddata_psf_map(psf_map_j_norm, v1, v2):
-    x1, y1 = np.meshgrid(v1, v1)
-    x2, y2 = np.meshgrid(v2, v2)
-
+    # Indexing is specified to be 'ij' to be consistent with the output of np.meshgrid and interpn
+    x2, y2 = np.meshgrid(v2, v2, indexing='ij')
     # Interpolate the PSF map
-    psf_interp = interpolate.griddata(
-        (x1.flatten(), y1.flatten()), psf_map_j_norm.flatten(), (x2, y2))
+
+    # GRidata is SLOW and interp2d is DEPRECATED
+    # It took 0.2 seconds in contrast to 0.0005 seconds with interpn
+    # The difference in accuracy is negligible, the maximum difference is 0.00010 while the average is 2.3e-8
+    # The difference in speed is huge, interp2d is 400 times faster
+    # So I decided to use interpn instead of griddata
+
+    # Interpolate with interpn
+    psf_interp = interpolate.interpn(
+        (v1, v1), psf_map_j_norm, (x2, y2), method="linear", bounds_error=False, fill_value=None)
     psf_interp = psf_interp/((v1[1]-v1[0])**2)
+
     return psf_interp, np.sum(psf_interp)
 
 
@@ -234,7 +252,7 @@ def convolve(image, kernel):
     return signal.fftconvolve(image, kernel, mode='same')
 
 
-@njit(cache=True)
+@ njit(cache=True)
 def convolve2D(image, kernel, strides=1):
     # Cross Correlation
     kernel = np.flipud(np.fliplr(kernel))
@@ -278,7 +296,7 @@ def flip_slit(detector, to_tilt):
     return ndimage.rotate(detector, tilt, reshape=False)
 
 
-@njit()
+@ njit()
 def normalize_psf_map(psf_map_j):
     psf_map_j_norm = psf_map_j / np.sum(psf_map_j)
     psf_box_z = psf_map_j_norm.shape[0]
@@ -286,11 +304,11 @@ def normalize_psf_map(psf_map_j):
     return psf_map_j_norm, psf_box_z
 
 
-@njit()
+@ njit()
 def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
-    v1 = np.linspace(1, (psf_map_pixel_number *
+    v1 = np.linspace(0, (psf_map_pixel_number *
                          dimension_pixel), psf_box_z)
-    v2 = np.linspace(1, (psf_map_pixel_number * dimension_pixel),
+    v2 = np.linspace(0, (psf_map_pixel_number * dimension_pixel),
                      (psf_map_pixel_number * dimension_pixel))
     return v1, v2
 
@@ -317,16 +335,16 @@ def add_pre_over_scan(detector):
     new_detector[3744:4896, 0:4616] = detector[(3*1152):(4*1152), 0:4616]
     new_detector[3744:4896, 4680:-1] = detector[(3*1152):(4*1152), 4616:-1]
 
-    new_detector[5024:(5024+1152), 0:4616] = detector[(4*1152):(5*1152), 0:4616]
+    new_detector[5024:(5024+1152), 0:4616] = detector[(4*1152)                                                      :(5*1152), 0:4616]
     new_detector[5024:(5024+1152),
                  4680:-1] = detector[(4*1152):(5*1152), 4616:-1]
-    new_detector[6264:(6264+1152), 0:4616] = detector[(5*1152):(6*1152), 0:4616]
+    new_detector[6264:(6264+1152), 0:4616] = detector[(5*1152)                                                      :(6*1152), 0:4616]
     new_detector[6264:(6264+1152),
                  4680:-1] = detector[(5*1152):(6*1152), 4616:-1]
-    new_detector[7504:(7504+1152), 0:4616] = detector[(6*1152):(7*1152), 0:4616]
+    new_detector[7504:(7504+1152), 0:4616] = detector[(6*1152)                                                      :(7*1152), 0:4616]
     new_detector[7504:(7504+1152),
                  4680:-1] = detector[(6*1152):(7*1152), 4616:-1]
-    new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152):(8*1152), 0:4616]
+    new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152)                                                      :(8*1152), 0:4616]
     new_detector[8744:(8744+1152),
                  4680:-1] = detector[(7*1152):(8*1152), 4616:-1]
 
