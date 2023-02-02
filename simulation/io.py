@@ -37,10 +37,8 @@ def build_config(configuration_file: dict) -> Configuration:
     # Dictionary -> Object of specific Class
     output_obj = to_output(configuration_file["output"])
     acquisition_obj = to_acquisition(configuration_file["acquisition"])
-    if "calibration" in configuration_file:
-        calibration_obj = to_calibration(configuration_file["calibration"])
-    else:
-        calibration_obj = None
+    calibration_obj = to_calibration(
+        configuration_file["calibration"]) if "calibration" in configuration_file else None
     telescope_obj = to_telescope(configuration_file["telescope"])
     spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
     parameter_obj = to_parameter(configuration_file["simulation"])
