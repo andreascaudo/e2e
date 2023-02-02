@@ -20,6 +20,8 @@ PARALLEL = True
 
 
 def run(configuration: Configuration):
+    start_time = time.time()
+
     # Unpack configuration
     output = configuration.output
     telescope = configuration.telescope
@@ -30,6 +32,9 @@ def run(configuration: Configuration):
 
     # TBI: Implement a function TO CHECK if acquisition reflects the spectrograph parameters
 
+    if TIME:
+        print("Start generating SED")
+        delta_time = time.time()
     # 1st step: generate flux
     # [Angstrom], [Ph/s/cm^2/A]
     sed_wavelength, sed_flux = acquisition.sed.get_flux()
@@ -44,6 +49,11 @@ def run(configuration: Configuration):
     if DEBUG:
         plot.generic("SED Normalized", sed_wavelength, sed_flux, [
             "wavelength [$\AA$]", "flux " + r"[Ph/s/cm$^2$/$\AA$]"])
+
+    if TIME:
+        print("SED generated in %s seconds" % (time.time() - delta_time))
+        print("Start generating Sky and Transmission")
+        delta_time = time.time()
 
     # 2nd step: get sky radiance and transission
     # [-] ,[ph/s/cm2/A]
@@ -67,6 +77,11 @@ def run(configuration: Configuration):
             plot.generic("Spectrograph + Telesciope Efficiency",
                          spectrograph.wavematrix[i], spectrograph.telescope_spectrograph_efficiency_fdr[i], ["wavelength [$\AA$]", "[-]"])
 
+    if TIME:
+        print("Sky and Transmission generated in %s seconds" %
+              (time.time() - delta_time))
+        print("Start setting Sky and Obj Efficiency")
+        delta_time = time.time()
     # 3th step: Set Sky and Obj Efficiency
     acquisition.sky.set_efficiency(spectrograph.wavematrix,
                                    spectrograph.telescope_spectrograph_efficiency_fdr)
@@ -77,6 +92,12 @@ def run(configuration: Configuration):
     # slit_efficiency_matrix, fwhm_iq_matrix = efficiency.get_slit_efficiency(spectrograph.wavematrix, acquisition.sky.airmass,
     #                                                                        acquisition.characteristics.slit_size_x, acquisition.characteristics.slit_size_y,
     #                                                                        acquisition.sky.seeing, spectrograph.fwhm_instrument, (telescope.diameter/100), telescope.l_zero)
+
+    if TIME:
+        print("Sky and Obj Efficiency set in %s seconds" %
+              (time.time() - delta_time))
+        print("Start setting subpixels and orders/slices")
+        delta_time = time.time()
 
     spectrograph.set_subpixels(
         parameter.pixel_oversampling, parameter.psf_map_pixel_number)
@@ -92,13 +113,17 @@ def run(configuration: Configuration):
     # TBD: Selection of slices from the configuration file
     slices = np.arange(0, spectrograph.len_n_slices)
 
-    start_time = time.time()
-
     orders_slices = np.array(np.meshgrid(orders, slices)).T.reshape(-1, 2)
+
+    if TIME:
+        print("Subpixels and orders/slices set in %s seconds" %
+              (time.time() - delta_time))
+        print("Start Calculations")
 
     # order_y_subpix_min = do_in_parallel(orders, configuration)
     if PARALLEL:
-        print("Start Parallel Calculation")
+        print("Start Parallel Calculation after ",
+              time.time() - start_time, " seconds")
         with futures.ProcessPoolExecutor() as executor:
             parallel_results = executor.map(
                 slice_calculation, orders_slices, repeat(configuration))
@@ -108,7 +133,7 @@ def run(configuration: Configuration):
                                                result[2], result[3]] = result[0]
                 order_y_subpix_min[result[2], result[3]] = result[1]
     else:
-        print("Start Calculations")
+        print("Start Calculations after ", time.time() - start_time, " seconds")
         for order_slice in (orders_slices):
             spectrograph.detector_subpixel[:, :, order_slice[0], order_slice[1]], order_y_subpix_min[order_slice[0],
                                                                                                      order_slice[1]], i, j = slice_calculation(order_slice, configuration)
@@ -122,11 +147,11 @@ def run(configuration: Configuration):
     # Recombination of the orders
 
     # DO NOT COMMENT THIS LINE
-    # detector_recombined = np.zeros(
-    #    (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
+    detector_recombined = np.zeros(
+        (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
     # COMMENT THIS LINE
-    detector_recombined = np.zeros((3100, spectrograph.n_pixels_subpixel))
-    print(detector_recombined.shape)
+    # detector_recombined = np.zeros((3100, spectrograph.n_pixels_subpixel))
+    # print(detector_recombined.shape)
 
     unkown3 = 3 if spectrograph.name == "SOXS" else 5
 
@@ -134,20 +159,14 @@ def run(configuration: Configuration):
         for s in slices:
             print("ORDER:")
             print(order_y_subpix_min[t][s])
-            print((unkown3*spectrograph.psf_map_pixel_number_subpixel))
             yy_start = int(order_y_subpix_min[t][s] -
                            (unkown3*spectrograph.psf_map_pixel_number_subpixel)) - 1
-            print(yy_start)
             yy_end = int(yy_start + (310*parameter.pixel_oversampling))
 
             print("Start: ", str(yy_start), "End: ", str(yy_end))
             # COMMENT THIS LINE
-            yy_start = 0
-            yy_end = 3100
-
-            from matplotlib import pyplot as plt
-            plt.imshow(spectrograph.detector_subpixel[:, :, t, s])
-            plt.show()
+            #yy_start = 0
+            #yy_end = 3100
 
             detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
                 spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
@@ -175,17 +194,22 @@ def run(configuration: Configuration):
     if spectrograph.name == "CUBES":
         # SHIFT
         # DO NOT COMMENT THIS LINE
-        #Det_s = 704
-        # detector_temp = np.zeros(
-        #    (detector_final.shape[0], detector_final.shape[1]))
-        #detector_temp[:-Det_s, :] = detector_final[Det_s:, :]
+        Det_s = 704
+        detector_temp = np.zeros(
+            (detector_final.shape[0], detector_final.shape[1]))
+        detector_temp[:-Det_s, :] = detector_final[Det_s:, :]
 
         # Piston Counts w.r.t. to Bias-Dark
         piston = 0  # 50
         detector_final = detector_final + piston
         # Add pre/over scan region
         # DO NOT COMMENT THIS LINE
-        # detector_final = tools.add_pre_over_scan(detector_final)
+        detector_final = tools.add_pre_over_scan(detector_final)
+
+    # --- END OF THE SIMULATION ------------------------------------------------
+
+    print("End Calculations")
+    print("--- %s seconds ---" % (time.time() - start_time))
 
     plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
                   str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
@@ -197,11 +221,6 @@ def run(configuration: Configuration):
         filename = current_time + '.fits'
         fits.writeto(path.join(folder, filename),
                      detector_final, overwrite=True)
-
-    # --- END OF THE SIMULATION ------------------------------------------------
-
-    print("End Calculations")
-    print("--- %s seconds ---" % (time.time() - start_time))
 
 
 def slice_calculation(order_slice, configuration):
@@ -353,9 +372,11 @@ def slice_calculation(order_slice, configuration):
     # rng = range(2640 * parameter.pixel_oversampling,
     #            4453 * parameter.pixel_oversampling)
     rng = range(0, order_len_wavelength_subpix-1)
-    #rng = [2924 * parameter.pixel_oversampling]
+    # rng = [2924 * parameter.pixel_oversampling]
 
     for j in tqdm(rng):
+        subpix_time = time.time()
+        time_save = time
         if TIME:
             print("Starting Slice: ", slice_index, " sub-pixel: ", j)
             print("Start init")
@@ -365,14 +386,21 @@ def slice_calculation(order_slice, configuration):
         # Obj Counts & Efficiency
         object_counts[j] = tools.integration(
             order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sed)
+
         object_efficiency[j] = object_counts[j] * \
             order_total_efficiency_object.T[1][j]
 
         # Sky Counts & Efficiency
-        sky_counts[j] = tools.integration(
-            order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sky.radiance)
-        sky_efficiency[j] = sky_counts[j] * \
-            order_total_efficiency_sky.T[1][j]
+        if acquisition.sky.radiance.flux is None:
+            sky_counts[j] = 0
+        else:
+            sky_counts[j] = tools.integration(
+                order_wavelength_subpix[j], delta_lambda_subpix[j], acquisition.sky.radiance)
+            sky_efficiency[j] = sky_counts[j] * \
+                order_total_efficiency_sky.T[1][j]
+
+        if object_counts[j] == 0 and sky_counts[j] == 0:
+            continue
 
         # --- Image size --------------------------------------------------
         uknown2 = 6 if spectrograph.name == "SOXS" else 10
