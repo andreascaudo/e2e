@@ -14,4 +14,4 @@ class Slice:
         self.shift_pix = self.shift_arc * plate_scale
 
     def to_subpix(self, oversampling):
-        self.shift_subpix = np.round(self.shift_pix * oversampling)
+        self.shift_subpix = self.shift_pix * oversampling

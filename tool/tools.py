@@ -1,4 +1,3 @@
-import time
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import math
@@ -33,11 +32,15 @@ def myround(n):
 
 
 def interp(x, y, new_x, fill_value, kind="linear"):
+
     function = interpolate.interp1d(x, y, kind=kind, fill_value=fill_value)
+
     return function(new_x)
 
 # Return Plate Scale in um/arcsec
 # ----------------------> Pupil in cm
+
+
 def get_plate_scale(f_number, pupil_equivalent_diameter):
     # focal length [mm] = f/N * Pupil diameter [cm -> mm]
     f = f_number * pupil_equivalent_diameter * 10
@@ -89,20 +92,21 @@ def calibration_slit(counts, image_size, area, ps_y_fact, slit_x, pixel_oversamp
 
 
 @njit()
-def object_slit(counts, f_number, pupil_equivalent_diameter, dimension_pixel, seeing, pixel_oversampling, image_size, ps_y_fact):
+def object_slit(counts, pixel_platescale, dimension_pixel, seeing, pixel_oversampling, image_size, ps_y_fact):
     pixelsz = dimension_pixel / pixel_oversampling
 
     refx = -((image_size[0]/2) - np.round(image_size[0]/2))
     refy = ((image_size[1]/2) - np.round(image_size[1]/2))
 
     # focal length [mm] = f/N * Pupil diameter [cm -> mm]
-    f = f_number * pupil_equivalent_diameter * 10
-    plate_scale = (f/206265)*1000  # um/arcsec
 
-    FWHM_x = plate_scale * seeing  # in um/arcsec
-    FWHM_y = plate_scale * seeing  # in um/arcsec
+    plate_scale = pixel_platescale * dimension_pixel  # um/arcsec
 
-    sx = (FWHM_x/(2.35*pixelsz))*ps_y_fact
+    # Seeing in arcsec
+    FWHM_x = plate_scale * seeing  # in um
+    FWHM_y = plate_scale * seeing  # in um
+
+    sx = (FWHM_x/(2.35*pixelsz))
     sy = (FWHM_y/(2.35*pixelsz))
 
     detector = np.zeros((image_size[0], image_size[1]))
@@ -177,19 +181,21 @@ def object_slit(counts, f_number, pupil_equivalent_diameter, dimension_pixel, se
 
 
 @njit()
-def mask_maker(x, y, image_size, sx_m, sy_m):
-    return (x > ((image_size[1]-sx_m)/2)) & (x <= ((image_size[1]+sx_m) /
-                                                   2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2))
+def mask_maker(x, y, image_size, sx_m, sy_m, mask_oversampling):
+    return (x > int((image_size[1]-1-sx_m)/2)) & (x <= int((image_size[1]-1+sx_m) / 2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2))
+    # OR return (x >= int((image_size[1]-1-sx_m)/2)) & (x <= int((image_size[1]-1+sx_m) / 2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2)) 50
 
 
-def mask_ideal_slit(image_size, sy_m, sx_m):
+def mask_ideal_slit(image_size, sy_m, sx_m, mask_oversampling):
+
+    image_size = image_size * mask_oversampling
 
     x = np.arange(0, image_size[1], 1)
     y = np.arange(0, image_size[0], 1)
 
     x, y = np.meshgrid(x, y)
 
-    mask = mask_maker(x, y, image_size, sx_m, sy_m)
+    mask = mask_maker(x, y, image_size, sx_m, sy_m, mask_oversampling)
 
     return mask
 
@@ -204,12 +210,10 @@ def rebin_image(image, factor):
     size_img = image.shape
 
     new_image = np.sum(np.reshape(image, (p, -1), order="F"), axis=0)
-
     new_image = np.reshape(new_image, (int(size_img[0]/p), -1), order="F").T
 
     new_image = np.sum(np.reshape(new_image, (q, -1), order="F"), axis=0)
     new_image = np.reshape(new_image, (int(size_img[1]/q), -1), order="F").T
-    # print(new_image.shape)
 
     return new_image
 
@@ -252,7 +256,7 @@ def convolve(image, kernel):
     return signal.fftconvolve(image, kernel, mode='same')
 
 
-@ njit(cache=True)
+@njit(cache=True)
 def convolve2D(image, kernel, strides=1):
     # Cross Correlation
     kernel = np.flipud(np.fliplr(kernel))
@@ -296,7 +300,7 @@ def flip_slit(detector, to_tilt):
     return ndimage.rotate(detector, tilt, reshape=False)
 
 
-@ njit()
+@njit()
 def normalize_psf_map(psf_map_j):
     psf_map_j_norm = psf_map_j / np.sum(psf_map_j)
     psf_box_z = psf_map_j_norm.shape[0]
@@ -304,7 +308,7 @@ def normalize_psf_map(psf_map_j):
     return psf_map_j_norm, psf_box_z
 
 
-@ njit()
+@njit()
 def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
     v1 = np.linspace(0, (psf_map_pixel_number *
                          dimension_pixel), psf_box_z)
@@ -312,9 +316,10 @@ def init_conv_matrix(psf_map_pixel_number, dimension_pixel, psf_box_z):
                      (psf_map_pixel_number * dimension_pixel))
     return v1, v2
 
+# CUBES
+
 
 def add_pre_over_scan(detector):
-
     # Adding the 16 Pixels to get 9232 in spatial direction
     detecor_final = np.zeros(
         (detector.shape[0]+16, detector.shape[1]))
@@ -345,12 +350,14 @@ def add_pre_over_scan(detector):
     new_detector[7504:(7504+1152),
                  4680:-1] = detector[(6*1152):(7*1152), 4616:-1]
     new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152)                                                      :(8*1152), 0:4616]
-    new_detector[8744:(8744+1152),
-                 4680:-1] = detector[(7*1152):(8*1152), 4616:-1]
+    new_detector[8744:(8744+1152), 4680:-
+                 1] = detector[(7*1152):(8*1152), 4616:-1]
 
     # Rotate back new_detector to the original orientation
     new_detector = np.rot90(new_detector, 3)
     return new_detector
+
+# CUBES
 
 
 def remove_pre_over_scan(detector):
@@ -392,5 +399,5 @@ def remove_pre_over_scan(detector):
         (new_detector.shape[0]-16, new_detector.shape[1]))
     new_data = new_detector[8:-8, :]
 
-    # (9232, 9216)
+    # (9216, 9216)
     return new_data

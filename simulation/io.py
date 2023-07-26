@@ -64,8 +64,9 @@ def load_config(path: str):
         try:
             configuration_file = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            print(exc)
-
+            if hasattr(exc, 'problem_mark'):
+                mark = exc.problem_mark
+                print("Error position: (%s:%s)" % (mark.line+1, mark.column+1))
         config = build_config(configuration_file)
 
     return config

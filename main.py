@@ -70,8 +70,9 @@ def run(configuration: Configuration):
         plot.generic("Sky transmission", transimission.wavelength,
                      transimission.transmission, ["wavelength [$\AA$]", "[-]"])
 
-        plot.generic("Sky radiance", radiance.wavelength,
-                     radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
+        if radiance.flux is not None:
+            plot.generic("Sky radiance", radiance.wavelength,
+                         radiance.flux, ["wavelength [$\AA$]", "[ph/s/cm2/A]"])
 
         for i in range(0, spectrograph.len_n_orders):
             plot.generic("Spectrograph + Telesciope Efficiency",
@@ -145,13 +146,15 @@ def run(configuration: Configuration):
 
  # -------------------------------------------------------------------------
     # Recombination of the orders
-
-    # DO NOT COMMENT THIS LINE
-    detector_recombined = np.zeros(
-        (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
-    # COMMENT THIS LINE
-    # detector_recombined = np.zeros((3100, spectrograph.n_pixels_subpixel))
-    # print(detector_recombined.shape)
+    # When if pixel_oversampling < 10, the detector_recombined is 310x:
+    # To simulate the AFC and not get MEMORY ERROR in the recombination of the orders
+    # TBD: Check if this is the best way to do it
+    if parameter.pixel_oversampling < 10:
+        detector_recombined = np.zeros(
+            (spectrograph.n_pixels_subpixel, spectrograph.n_pixels_subpixel))
+    else:
+        detector_recombined = np.zeros(
+            (310*parameter.pixel_oversampling, spectrograph.n_pixels_subpixel))
 
     unkown3 = 3 if spectrograph.name == "SOXS" else 5
 
@@ -159,21 +162,27 @@ def run(configuration: Configuration):
         for s in slices:
             print("ORDER:")
             print(order_y_subpix_min[t][s])
-            yy_start = int(order_y_subpix_min[t][s] -
-                           (unkown3*spectrograph.psf_map_pixel_number_subpixel)) - 1
-            yy_end = int(yy_start + (310*parameter.pixel_oversampling))
+            if parameter.pixel_oversampling < 10:
+                yy_start = int(order_y_subpix_min[t][s] -
+                               (unkown3*spectrograph.psf_map_pixel_number_subpixel)) - 1
+                yy_end = int(yy_start + (310*parameter.pixel_oversampling))
+            else:
+                yy_start = 0
+                yy_end = 310*parameter.pixel_oversampling
 
             print("Start: ", str(yy_start), "End: ", str(yy_end))
-            # COMMENT THIS LINE
-            #yy_start = 0
-            #yy_end = 3100
 
             detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
                 spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
                     spectrograph.subpixel_edge/2)+spectrograph.n_pixels_subpixel, t, s]
+            '''
+            # RIX
+            detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
+                spectrograph.detector_subpixel[:,
+                                               :spectrograph.n_pixels_subpixel, t, s]
+            '''
 
     # Binnig to the final detector image with real size
-
     detector_recombined_binned = tools.rebin_image(
         detector_recombined, [parameter.pixel_oversampling, parameter.pixel_oversampling])
 
@@ -193,26 +202,27 @@ def run(configuration: Configuration):
 
     if spectrograph.name == "CUBES":
         # SHIFT
-        # DO NOT COMMENT THIS LINE
-        Det_s = 704
-        detector_temp = np.zeros(
-            (detector_final.shape[0], detector_final.shape[1]))
-        detector_temp[:-Det_s, :] = detector_final[Det_s:, :]
+        if parameter.pixel_oversampling < 10:
+            Det_s = 704
+            detector_shifted = np.zeros(
+                (detector_final.shape[0], detector_final.shape[1]))
+            detector_shifted[:-Det_s, :] = detector_final[Det_s:, :]
+        else:
+            detector_shifted = detector_final
 
         # Piston Counts w.r.t. to Bias-Dark
         piston = 0  # 50
-        detector_final = detector_final + piston
+        detector_final = detector_shifted + piston
         # Add pre/over scan region
-        # DO NOT COMMENT THIS LINE
-        detector_final = tools.add_pre_over_scan(detector_final)
+        # detector_final = tools.add_pre_over_scan(detector_final)
 
     # --- END OF THE SIMULATION ------------------------------------------------
 
     print("End Calculations")
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
-                  str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
+    # plot.detector('Detector - Real Pixel Scale - PSF Incl' + ' - DIT = ' +
+    #              str(acquisition.characteristics.detector_integration_time) + 's - [e-]', detector_final)
 
     # Get current time and use it to save the fits file
     if output.SAVE:
@@ -238,9 +248,11 @@ def slice_calculation(order_slice, configuration):
     # slice and single-order-table
     order_number = spectrograph.grating.n_orders[i]
     slice_number = spectrograph.slices[slice_index].slice_id
+
     print("Order Number: ", str(order_number))
     print("Slice Number: ", str(slice_number))
     slice_time = time.time()
+
     order = spectrograph.grating.order_table[spectrograph.grating.order_table.T[0] == order_number]
     slice = order[spectrograph.grating.order_table.T[1] ==
                   slice_number] if len(spectrograph.slices) > 1 else order
@@ -254,7 +266,6 @@ def slice_calculation(order_slice, configuration):
     # wavlength vector in meters
     wavelength = unit_converter.wavelength(
         slice.T[2+SIT], "um", "m")  # in meters
-    delta_lambda = abs(wavelength[0]-wavelength[1])
     # ---------------------------------------------------------------------
 
     # ---------------------------------------------------------------------
@@ -279,9 +290,9 @@ def slice_calculation(order_slice, configuration):
         order_x_subpix, order_y_subpix, order_x_subpix_new, "extrapolate", "cubic")
 
     # Sx
-    order_sx_subpix = slice.T[5+SIT]
-    order_sx_subpix = tools.interp(
-        order_x_subpix, order_sx_subpix, order_x_subpix_new, "extrapolate", "cubic")
+    order_sx = slice.T[5+SIT]
+    order_sx = tools.interp(
+        order_x_subpix, order_sx, order_x_subpix_new, "extrapolate", "cubic")
 
     # DELATE PSF_XX PSF_YY BEFORE CONTNUING
     # Tilt Order
@@ -332,7 +343,7 @@ def slice_calculation(order_slice, configuration):
 
     ps_y_fact = order_efficiency_subpix / \
         (uknown5 * parameter.pixel_oversampling)
-    sx = np.round(order_sx_subpix * parameter.pixel_oversampling)
+    sx = order_sx * parameter.pixel_oversampling
 
     # Slit Image Simulation
 
@@ -352,27 +363,18 @@ def slice_calculation(order_slice, configuration):
         (order_y_subpix_min) + 1 + \
         (unkown * spectrograph.psf_map_pixel_number_subpixel)
 
-    # --- SHIFT ---- to be applied -----------------------
-    if len(spectrograph.slices) > 1:
-        pixel_oversampling_shift = 10
-    else:
-        pixel_oversampling_shift = 1
-
-    if len(spectrograph.slices) > 1:
-        plate_scale = tools.get_plate_scale(
-            telescope.f_number, telescope.pupil_equivalent_diameter)  # um/arcsec
-        plate_scale = plate_scale / spectrograph.dimension_pixel  # pixel/arcsec
-        for slc in spectrograph.slices:
-            slc.to_pix_arcsec(plate_scale)
-            slc.to_subpix(pixel_oversampling_shift)
     # ----------------------------------------------------
-
+    '''
+    features_positions_sim = {
+                          23: [[273, 1450], [1204, 1350], [1396, 1355]]
+                        }
+    '''
     # temp_pixel = 1000 if spectrograph.name == "SOXS" else 2955
-    # rng = np.array([temp_pixel])*parameter.pixel_oversampling
+    # rng = np.array([273, 1204, 1396])*parameter.pixel_oversampling
     # rng = range(2640 * parameter.pixel_oversampling,
     #            4453 * parameter.pixel_oversampling)
     rng = range(0, order_len_wavelength_subpix-1)
-    # rng = [2924 * parameter.pixel_oversampling]
+    print("SEEING: ", acquisition.sky.seeing)
 
     for j in tqdm(rng):
         subpix_time = time.time()
@@ -382,6 +384,17 @@ def slice_calculation(order_slice, configuration):
             print("Start init")
             subpix_time = time.time()
             subpix_time_save = subpix_time
+
+        # Calculate plate scale
+        if len(spectrograph.slices) > 1:
+            pixel_slice = order_sx[j]  # pixel/slice
+            slice_arcsec = acquisition.characteristics.slit_size_x / \
+                len(spectrograph.slices)  # arcsec/slice
+            pixel_platescale = pixel_slice/slice_arcsec  # pixel/arcsec
+        else:
+            pixel_slit = order_sx[j]  # pixel/slit
+            slit_arcsec = acquisition.characteristics.slit_size_x  # arcsec/slit
+            pixel_platescale = pixel_slit/slit_arcsec  # pixel/arcsec
 
         # Obj Counts & Efficiency
         object_counts[j] = tools.integration(
@@ -405,7 +418,7 @@ def slice_calculation(order_slice, configuration):
         # --- Image size --------------------------------------------------
         uknown2 = 6 if spectrograph.name == "SOXS" else 10
         image_size = np.array([uknown2*spectrograph.psf_map_pixel_number_subpixel,
-                               2*spectrograph.psf_map_pixel_number_subpixel])
+                              int(2*spectrograph.psf_map_pixel_number_subpixel)])
         if TIME:
             print("Ended Init in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
@@ -422,7 +435,7 @@ def slice_calculation(order_slice, configuration):
             else:
                 object_slit = tools.object_slit(
                     object_efficiency[j],
-                    telescope.f_number, telescope.pupil_equivalent_diameter,
+                    pixel_platescale,
                     spectrograph.dimension_pixel,
                     acquisition.sky.seeing,
                     parameter.pixel_oversampling,
@@ -461,20 +474,54 @@ def slice_calculation(order_slice, configuration):
             print("Start shift")
             subpix_time = time.time()
 
+            # --- SHIFT ---- to be applied -----------------------
+        if len(spectrograph.slices) > 1:
+            pixel_oversampling_shift = parameter.mask_oversampling
+        else:
+            pixel_oversampling_shift = 1
+
+        if len(spectrograph.slices) > 1:
+            subpixel_slice = sx[j]  # subpixel/slice
+            slice_arcsec = acquisition.characteristics.slit_size_x / \
+                len(spectrograph.slices)  # arcsec/slice
+            subpixel_platescale = subpixel_slice/slice_arcsec  # subpixel/arcsec
+
+            spectrograph.slices[slice_index].to_pix_arcsec(subpixel_platescale)
+            spectrograph.slices[slice_index].to_subpix(
+                pixel_oversampling_shift)  #  subpixel to subpixel_mask
+
         # --- SHIFT ---------------------------------------------
         if len(spectrograph.slices) > 1:
-            shift = int(spectrograph.slices[slice_index].shift_subpix)
+            shift = int(
+                np.round(spectrograph.slices[slice_index].shift_subpix))
+
             vs0_1 = np.linspace(1, image_size[0], image_size[0])
             vs0_2 = np.linspace(1, image_size[1], image_size[1])
+
             vs1 = np.linspace(1, image_size[0],
                               image_size[0]*pixel_oversampling_shift)
             vs2 = np.linspace(1, image_size[1],
                               image_size[1]*pixel_oversampling_shift)
+            '''
             Xs0, Ys0 = np.meshgrid(vs0_2, vs0_1)
             Xs1, Ys1 = np.meshgrid(vs2, vs1)
 
-            detector = interpolate.griddata(
+            psf_interp_0 = interpolate.griddata(
                 (Xs0.flatten(), Ys0.flatten()), detector.flatten(), (Xs1, Ys1))
+            psf_interp_0 = psf_interp_0 * (vs1[1] - vs1[0]) * (vs2[1] - vs2[0])
+            '''
+            # GRidata is SLOW and interp2d is DEPRECATED
+            # It took 0.2 seconds in contrast to 0.0005 seconds with interpn
+            # The difference in accuracy is negligible, the maximum difference is 0.00010 while the average is 2.3e-8
+            # The difference in speed is huge, interp2d is 400 times faster
+            # So I decided to use interpn instead of griddata
+
+            Xs1, Ys1 = np.meshgrid(vs1, vs2, indexing="ij")
+
+            # Interpolate with interpn
+            detector = interpolate.interpn(
+                (vs0_1, vs0_2), detector, (Xs1, Ys1), method="linear", bounds_error=False)
+
             detector = detector * (vs1[1] - vs1[0]) * (vs2[1] - vs2[0])
 
             if shift < 0:
@@ -492,14 +539,17 @@ def slice_calculation(order_slice, configuration):
         if calibration is None:
             sy_m = order_efficiency_subpix * pixel_oversampling_shift
             sx_m = sx[j] * pixel_oversampling_shift
+
             mask = tools.mask_ideal_slit(
-                image_size * pixel_oversampling_shift, sy_m, sx_m)
+                image_size, sy_m, sx_m, pixel_oversampling_shift)
         else:
             # Pinhole
             mask = calibration.get_mask(
-                ps_y_fact[i], image_size, parameter.pixel_oversampling, parameter.mask_oversampling)
+                ps_y_fact, image_size, parameter.pixel_oversampling, parameter.mask_oversampling)
+
         # HERE
         detector = detector * mask
+
         if pixel_oversampling_shift > 1:
             detector = tools.rebin_image(
                 detector, [pixel_oversampling_shift, pixel_oversampling_shift])
@@ -549,22 +599,19 @@ def slice_calculation(order_slice, configuration):
         # Resampling - rebinning factor : Num-SubPix of 1um size / Num-SubPix for PPP2
         rebin_factor = (parameter.psf_map_pixel_number * spectrograph.dimension_pixel) / (
             parameter.psf_map_pixel_number * parameter.pixel_oversampling)
+
         psf_bin = tools.rebin_image(
             psf_interp, [rebin_factor, rebin_factor])
+
+        if DEBUG:
+            plot.detector("Order: " + str(i) + ": Slit Image",
+                          detector_rotated)
 
         if TIME:
             print("Ended normalize and rebin convoluting in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
             print("Start convoluting")
             subpix_time = time.time()
-
-        # Convolution
-        # detector_conv = tools.convolve(
-        #    detector_rotated, psf_bin)
-
-        if DEBUG:
-            plot.detector("Order: " + str(i) + ": Slit Image",
-                          detector_rotated)
 
         detector_conv = tools.convolve(detector_rotated, psf_bin)
 
@@ -575,13 +622,14 @@ def slice_calculation(order_slice, configuration):
             subpix_time = time.time()
 
         # --- POSITION IMAGE SIMULATION ELEMENT ---------------------------
-
         ref_x = order_x_subpix[j] + (spectrograph.subpixel_edge/2)
         ref_y = order_y_subpix[j]
-        ref_y_start = int(ref_y - (np.floor(detector_conv.shape[0]/2))) - 1
+        ref_y_start = int(ref_y - (detector_conv.shape[0]/2)) - 1
         ref_y_end = int(ref_y_start + detector_conv.shape[0])
-        ref_x_start = int(ref_x - (np.floor(detector_conv.shape[1]/2))) - 1
-        ref_x_end = int(ref_x_start + detector_conv.shape[1])
+
+        ref_x_start = int(
+            ref_x - (detector_conv.shape[1]/2)) + int(parameter.pixel_oversampling/2) - 1
+        ref_x_end = int(ref_x_start + detector_conv.shape[1])  # Nessun +1
 
         order_detector_subpixel[ref_y_start:ref_y_end,
                                 ref_x_start: ref_x_end] = order_detector_subpixel[ref_y_start: ref_y_end, ref_x_start: ref_x_end] + detector_conv
@@ -593,7 +641,6 @@ def slice_calculation(order_slice, configuration):
             print("--- %s seconds ---" % (time.time() - subpix_time_save))
 
     # spectrograph.detector_subpixel[:, :, i] = order_detector_subpixel
-    psf_bin_matrix = psf_bin
 
     print("End Slice: " + str(i))
     print("--- %s seconds ---" % (time.time() - slice_time))

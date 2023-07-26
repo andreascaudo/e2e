@@ -17,6 +17,7 @@ radiance_folder = "radiance"
 
 
 def write_skycalc_file(airmass, pwv, moon_sun_sep):
+
     id = str(uuid.uuid4())
 
     input = join(dirname(dirname(realpath(__file__))), "data",
@@ -145,7 +146,7 @@ class Sky:
     def get_sky(self, slit_x, slit_y):
         if self.active:
             transmission_filename = "Sky_tra_MFLI_" + \
-                str(int(self.moon_fli)) + "_Airm_" + \
+                str(self.moon_fli) + "_Airm_" + \
                 str(self.airmass) + "_PWV_" + \
                 str(self.pwv) + ".dat"  # float ???
 
@@ -153,7 +154,7 @@ class Sky:
                 join(dirname(dirname(realpath(__file__))), "data", "sky", transmission_folder), transmission_filename)
 
             radiance_filename = "Sky_rad_MFLI_" + \
-                str(int(self.moon_fli)) + "_Airm_" + \
+                str(self.moon_fli) + "_Airm_" + \
                 str(self.airmass) + "_PWV_" + str(self.pwv) + ".dat"
 
             radiance_file = pathlib.Path(
@@ -165,7 +166,7 @@ class Sky:
             # If files do not exist -> call skycal
             if not (transmission_file.is_file() and radiance_file.is_file()):
                 output = write_skycalc_file(str(self.airmass), str(self.pwv), str(
-                    int(self.moon_fli * (180 / 1))))
+                    np.round(self.moon_fli * (180 / 1), 2)))
                 output_skycalc = Table.read(output)
                 remove(output)
                 write_sky_file(

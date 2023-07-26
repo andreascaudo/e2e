@@ -13,6 +13,6 @@ class Acquisition:
         self.sed = sed_class(**sed)
         if sky is not None:
             self.sky = Sky(**sky)
-        else:
-            self.sky = Sky(-1, -1, -1, -1, active=False)
+        else:  # if not sky -> perfect seeing euqals to 1
+            self.sky = Sky(-1, -1, -1, 1, active=False)
         self.characteristics = Characteristics(**characteristics)
