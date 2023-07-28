@@ -16,7 +16,7 @@ from os import path
 
 DEBUG = False
 TIME = False
-PARALLEL = True
+PARALLEL = False
 
 
 def run(configuration: Configuration):
@@ -27,8 +27,22 @@ def run(configuration: Configuration):
     telescope = configuration.telescope
     calibration = configuration.calibration
     spectrograph = configuration.spectrograph
+    zemax = configuration.zemax
     acquisition = configuration.acquisition
     parameter = configuration.parameters
+
+    if zemax is not None:
+        spectrograph.grating.get_orders_wavelegth_range = zemax.get_orders_wavelegth_range(
+                spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel)
+        if zemax.order_table_flag:
+            spectrograph.grating.order_table = zemax.get_order_table(
+                spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel, parameter.psf_map_pixel_number)
+        
+        #It should already take in account the new order table
+        '''
+        if zemax.PSF:
+            spectrograph.psf_map = zemax.get_psf_map()
+        '''
 
     # TBI: Implement a function TO CHECK if acquisition reflects the spectrograph parameters
 

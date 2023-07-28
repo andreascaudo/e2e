@@ -27,9 +27,6 @@ class Spectrograph:
         n_pixels: int,                  # [-]
         dimension_pixel: float,         # [um]
 
-        wavelength_min: float,          # [A]
-        wavelength_max: float,          # [A]
-
         # Efficiency
         telescope_fdr_file: str,
         instrument_fdr_file: str,
@@ -79,10 +76,6 @@ class Spectrograph:
 
         self.n_pixels = n_pixels
         self.dimension_pixel = dimension_pixel
-
-        self.wavelength_min = wavelength_min
-        self.wavelength_max = wavelength_max
-        self.wavelength_band = np.arange(wavelength_min, wavelength_max, 1)
 
         # Genrate a set of slices based on two cases:
         # 1. If the user provides an image slicer, then use those slices

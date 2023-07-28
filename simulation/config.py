@@ -1,6 +1,7 @@
 from ..instrument import Spectrograph
 from ..instrument import Telescope
 from ..instrument import Calibration
+from ..instrument import Zemax
 from ..acquisition import Acquisition
 from .output import Output
 
@@ -42,11 +43,13 @@ class Configuration:
         calibration: Calibration,           # Calibrtion Unit
         telescope: Telescope,               # Telescope Parameters
         spectrograph: Spectrograph,         # Spectrograph Parameters
-        parameters: Parameter                    # Simulation Paramenters
+        zemax: Zemax,                       # Zemax Parameters
+        parameters: Parameter               # Simulation Paramenters
     ):
         self.output = output
         self.acquisition = acquisition
         self.calibration = calibration
         self.telescope = telescope
         self.spectrograph = spectrograph
+        self.zemax = zemax
         self.parameters = parameters

@@ -3,6 +3,7 @@ import yaml
 from .output import Output
 from ..acquisition import Acquisition
 from ..instrument import Spectrograph
+from ..instrument import Zemax
 from ..instrument import calibration
 from ..instrument import Telescope
 from .config import Configuration, Parameter
@@ -11,10 +12,8 @@ from .config import Configuration, Parameter
 def to_output(dct: dict):
     return Output(**dct)
 
-
 def to_acquisition(dct: dict):
     return Acquisition(**dct)
-
 
 def to_calibration(dct: dict):
     calibration_mode = getattr(calibration, dct["mode"])
@@ -28,6 +27,8 @@ def to_telescope(dct: dict):
 def to_spectrograph(dct: dict):
     return Spectrograph(**dct)
 
+def to_zemax(dct: dict):
+    return Zemax(**dct)
 
 def to_parameter(dct: dict):
     return Parameter(**dct)
@@ -40,6 +41,7 @@ def build_config(configuration_file: dict) -> Configuration:
     calibration_obj = to_calibration(
         configuration_file["calibration"]) if "calibration" in configuration_file else None
     telescope_obj = to_telescope(configuration_file["telescope"])
+    zemax_obj = to_zemax(configuration_file["zemax"]) if "zemax" in configuration_file else None
     spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
     parameter_obj = to_parameter(configuration_file["simulation"])
 
@@ -52,6 +54,7 @@ def build_config(configuration_file: dict) -> Configuration:
         calibration=calibration_obj,
         telescope=telescope_obj,
         spectrograph=spectrograph_obj,
+        zemax=zemax_obj,
         parameters=parameter_obj
     )
 
