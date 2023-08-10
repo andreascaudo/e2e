@@ -3,16 +3,20 @@ import numpy as np
 from ..tool import tools
 from ..zos.ZOS_connection import ZOS_connection
 
+DEBUG = False
+
 
 class Zemax:
     def __init__(
         self,
         file_path: str,
         order_table_output = None,
-        save_PSF_map = None,
+        PSF_map_output = None,
         order_table_flag: bool = True,
-        PSF_map_flag: bool = True
+        PSF_map_flag: bool = True,
+        CFG_path: str = None
     ) -> None:
+        self.N_SRE = 50
         self.file_path = file_path
         if order_table_flag != None:
             self.order_table_flag = order_table_flag
@@ -20,9 +24,15 @@ class Zemax:
             self.order_table_output = order_table_output
         if PSF_map_flag != None:
             self.PSF_map_flag = PSF_map_flag
-        if save_PSF_map != None and PSF_map_flag:
-            self.save_PSF_map = save_PSF_map
+            if CFG_path == None:
+                raise Exception("CFG_path not specified")
+            else:
+                self.CFG_path = CFG_path
+        if PSF_map_output != None and PSF_map_flag:
+            self.PSF_map_output = PSF_map_output
+
         self.order_table = []
+        self.psf_map_final = np.empty(0)
         self.zos = ZOS_connection.ZOS_connection()
         self.TheSystem = self.load_zemax()
         
@@ -50,9 +60,15 @@ class Zemax:
 
         wave_start = 0
 
-        delta_target = 0.000001 # Enough precision 
+        delta_target = 0.000001 # Enough precision
+
+        if DEBUG:   
+                                                                                                                                # to dict
+            self.orders_wavelegth_range = np.load("C:\\Users\\andreascaudo\\Desktop\\orders_wavelegth_range.npy", allow_pickle=True).item()
+            return self.orders_wavelegth_range
 
         for idx, order in enumerate(orders):
+            
             delta = 0.1
             lambda_start = 0
             px_start = 0
@@ -142,10 +158,11 @@ class Zemax:
             orders_pixel_range[order].append(px_end)
             print("Order: " + str(order) + " - lambda_end: " + str(self.orders_wavelegth_range[order][1]) + " - Pixel: " + str(orders_pixel_range[order][1]))
             print("Done!")
+        
+        return self.orders_wavelegth_range
+        
 
     def get_order_table(self, orders, detector_size, pixel_size, psf_map_pixel_number):
-        N_SRE = 50
-
         #N pixels for box convolution: THE EDGE-FRAME TO BE ADDED IN EACH SINGLE BOX
         N_pix_box_x = psf_map_pixel_number / 2
         N_pix_box_y = psf_map_pixel_number / 2
@@ -155,8 +172,6 @@ class Zemax:
 
         n_points = 5
 
-        
-
         for order_index, order_number in enumerate(orders):
             print("Order: " + str(order_number))
             for i in range(0, n_points):
@@ -164,9 +179,9 @@ class Zemax:
                 self.TheSystem.MCE.GetOperandAt(order_index_MCE).GetOperandCell(i+1).DoubleValue = order_number
                 self.TheSystem.MFE.GetOperandAt(i*3+1).GetCellAt(2).IntegerValues = i+1
 
-            lam_MCE_vect = np.linspace(self.orders_wavelegth_range[order_number][0], self.orders_wavelegth_range[order_number][1], N_SRE)
+            lam_MCE_vect = np.linspace(self.orders_wavelegth_range[order_number][0], self.orders_wavelegth_range[order_number][1], self.N_SRE)
 
-            for idx_wl in range(N_SRE):
+            for idx_wl in range(self.N_SRE):
                 lambda_MCE = lam_MCE_vect[idx_wl]
                 for i in range(0, n_points):
                     self.TheSystem.MCE.GetOperandAt(wavelength_1_index_MCE).GetOperandCell(i+1).DoubleValue = lambda_MCE
@@ -228,6 +243,9 @@ class Zemax:
         if self.order_table_output != None:
             self.save_order_table()
 
+        #return self.order_table as an array
+        return np.array(self.order_table)
+
 
     def save_order_table(self):
         if self.order_table_flag and self.order_table != []:
@@ -236,9 +254,82 @@ class Zemax:
                     header="m_ordd SRE-ID Lam-ID X_coor Y_coor Samp_x Samp_y X_box1 Y_box1 X_BoxN Y_BoxN Slit-T", 
                     comments='', delimiter=' ')
             print("Order table saved successfully")
-            exit()
         else:
             print("Order table not saved")
+
+    def get_PSF_map(self, orders, psf_field_sampling):
+        #Init PSF file
+        slice = np.dtype([('slice_n', np.uint8, (1,)), #Like this doesn't work with CUBES
+                        ('slice', np.ndarray, (psf_field_sampling, psf_field_sampling, self.N_SRE))])
+        
+        order = np.dtype([('order_n', np.uint8, (1,)), ('order', np.ndarray)])
+
+        self.psf_map_final = np.empty(16, dtype=order)
+
+        order_index_MCE = 3
+        wavelength_1_index_MCE = 4
+
+        n_points = 5
+
+        #PSF ACQUISITION
+        analysis = self.TheSystem.Analyses.New_HuygensPsf()
+        # Settings
+        analysis_Settings = analysis.GetSettings()
+        analysis_Settings.LoadFrom(self.CFG_path)
+
+        psf_per_order = np.empty((psf_field_sampling, psf_field_sampling, self.N_SRE), dtype=np.ndarray)
+
+        self.TheSystem.MCE.SetCurrentConfiguration(1)
+
+        for order_index, order_number in enumerate(orders):
+            print("Order: " + str(order_number))
+            self.TheSystem.MCE.GetOperandAt(order_index_MCE).GetOperandCell(self.TheSystem.MCE.CurrentConfiguration).DoubleValue = order_number
+                #self.TheSystem.MFE.GetOperandAt(i*3+1).GetCellAt(2).IntegerValues = i+1 CHECK IN ZEMAX IF NEEDED
+
+            print("Current configuration: " + str(self.TheSystem.MCE.CurrentConfiguration))
+
+            lam_MCE_vect = np.linspace(self.orders_wavelegth_range[order_number][0], self.orders_wavelegth_range[order_number][1], self.N_SRE)
+
+            for idx_wl in range(self.N_SRE):
+                lambda_MCE = lam_MCE_vect[idx_wl]
+                self.TheSystem.MCE.GetOperandAt(wavelength_1_index_MCE).GetOperandCell(self.TheSystem.MCE.CurrentConfiguration).DoubleValue = lambda_MCE
+        
+                # Run the analysis with the current settings and pull the results
+                analysis.ApplyAndWaitForCompletion()
+                huygensResults = analysis.GetResults()
+
+                # The results will be split into multple data structures: Header, Intensity data, Metadata
+                # We want the intensity data. This is the same data you will see in the Text tab of the analysis
+                matrixData = huygensResults.GetDataGrid(0).Values
+                xLength = matrixData.GetLength(0)
+                yLength = matrixData.GetLength(1)
+
+                # Reformat the data so that it matches the output we see in OS
+                # We must also convert the matrix into a Python array for post-processing
+                huygensData = self.zos.reshape(matrixData, xLength, yLength, False)
+
+                # From list to numpy array
+                np_psf = np.array(huygensData)
+
+                psf_per_order[:,:,idx_wl] = np_psf
+        
+            slice_final = np.empty(1, dtype=slice)
+            print(psf_per_order.shape)
+
+            psf = np.array([(1, psf_per_order)], dtype=slice)
+            slice_final[0] = psf
+            self.psf_map_final[order_index] = np.array([(order_number, slice_final)], dtype=order)
+
+        if self.PSF_map_flag and self.psf_map_final.size != 0:
+            np.save(self.PSF_map_output, self.psf_map_final, allow_pickle=True)
+            print("PSF map saved successfully")
+        else:
+            print("PSF map not saved")
+
+        return self.psf_map_final
+
+
+
 
 
 

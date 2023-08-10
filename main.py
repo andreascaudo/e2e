@@ -34,15 +34,14 @@ def run(configuration: Configuration):
     if zemax is not None:
         spectrograph.grating.get_orders_wavelegth_range = zemax.get_orders_wavelegth_range(
                 spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel)
+        #print("Order Wavelegth Range: ", spectrograph.grating.get_orders_wavelegth_range)
         if zemax.order_table_flag:
             spectrograph.grating.order_table = zemax.get_order_table(
                 spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel, parameter.psf_map_pixel_number)
-        
+        #print("Order Table: ", spectrograph.grating.order_table[0])
         #It should already take in account the new order table
-        '''
-        if zemax.PSF:
-            spectrograph.psf_map = zemax.get_psf_map()
-        '''
+        if zemax.PSF_map_flag:
+            spectrograph.psf_map = zemax.get_PSF_map(spectrograph.grating.n_orders, parameter.psf_field_sampling)
 
     # TBI: Implement a function TO CHECK if acquisition reflects the spectrograph parameters
 
@@ -341,9 +340,17 @@ def slice_calculation(order_slice, configuration):
     psf_map_shape = ((parameter.psf_field_sampling,
                       parameter.psf_field_sampling, order_len_wavelength_subpix))
 
-    psf_map = tools.interpolate_psf_map(
-        psf_map_shape, spectrograph.psf_map[i][1][slice_index][1], wavelength, order_wavelength_subpix)
-    # --------------------------------------> ALTRO PUNTO DA CONTROLLARE E FAR QUADRARE CON SOXS
+    # Extract psf map where spectrograph.psf_map[i][0] is equal to order number
+    if spectrograph.psf_map[i][0] == order_number:
+        if spectrograph.psf_map[i][1][slice_index][0] == slice_number:
+            psf_map = tools.interpolate_psf_map(
+                psf_map_shape, spectrograph.psf_map[i][1][slice_index][1], wavelength, order_wavelength_subpix)
+        else:
+            raise Exception("PSF MAP NOT FOUND:\nSimulation Slice: " + str(slice_number) + "does not match with the PSF map slice: " +
+                            str(spectrograph.psf_map[i][1][slice_index][0]))
+    else:
+        raise Exception("PSF MAP NOT FOUND:\nSimulation Order: " + str(order_number) + "does not match with the PSF map order: " +
+                        str(spectrograph.psf_map[i][0]))
 
     # ---------------------------------------------------------------------
     # Effective slit length / height and width/sampling_x
