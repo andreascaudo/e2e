@@ -16,7 +16,7 @@ from os import path
 
 DEBUG = False
 TIME = False
-PARALLEL = False
+PARALLEL = True
 
 
 def run(configuration: Configuration):
@@ -33,15 +33,16 @@ def run(configuration: Configuration):
 
     if zemax is not None:
         spectrograph.grating.get_orders_wavelegth_range = zemax.get_orders_wavelegth_range(
-                spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel)
-        #print("Order Wavelegth Range: ", spectrograph.grating.get_orders_wavelegth_range)
+            spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel)
+        # print("Order Wavelegth Range: ", spectrograph.grating.get_orders_wavelegth_range)
         if zemax.order_table_flag:
             spectrograph.grating.order_table = zemax.get_order_table(
                 spectrograph.grating.n_orders, spectrograph.n_pixels, spectrograph.dimension_pixel, parameter.psf_map_pixel_number)
-        #print("Order Table: ", spectrograph.grating.order_table[0])
-        #It should already take in account the new order table
+        # print("Order Table: ", spectrograph.grating.order_table[0])
+        # It should already take in account the new order table
         if zemax.PSF_map_flag:
-            spectrograph.psf_map = zemax.get_PSF_map(spectrograph.grating.n_orders, parameter.psf_field_sampling)
+            spectrograph.psf_map = zemax.get_PSF_map(
+                spectrograph.grating.n_orders, parameter.psf_field_sampling)
 
     # TBI: Implement a function TO CHECK if acquisition reflects the spectrograph parameters
 
