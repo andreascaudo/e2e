@@ -181,7 +181,7 @@ def object_slit(counts, pixel_platescale, dimension_pixel, seeing, pixel_oversam
 
 
 @njit()
-def mask_maker(x, y, image_size, sx_m, sy_m, mask_oversampling):
+def mask_maker(x, y, image_size, sx_m, sy_m):
     return (x > int((image_size[1]-1-sx_m)/2)) & (x <= int((image_size[1]-1+sx_m) / 2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2))
     # OR return (x >= int((image_size[1]-1-sx_m)/2)) & (x <= int((image_size[1]-1+sx_m) / 2)) & (y > ((image_size[0]-sy_m)/2)) & (y <= ((image_size[0]+sy_m)/2)) 50
 
@@ -195,7 +195,7 @@ def mask_ideal_slit(image_size, sy_m, sx_m, mask_oversampling):
 
     x, y = np.meshgrid(x, y)
 
-    mask = mask_maker(x, y, image_size, sx_m, sy_m, mask_oversampling)
+    mask = mask_maker(x, y, image_size, sx_m, sy_m)
 
     return mask
 

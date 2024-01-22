@@ -12,8 +12,10 @@ from .config import Configuration, Parameter
 def to_output(dct: dict):
     return Output(**dct)
 
-def to_acquisition(dct: dict):
-    return Acquisition(**dct)
+
+def to_acquisition(dct: dict, spectrograph_obj):
+    return Acquisition(spectrograph_obj, **dct)
+
 
 def to_calibration(dct: dict):
     calibration_mode = getattr(calibration, dct["mode"])
@@ -27,8 +29,10 @@ def to_telescope(dct: dict):
 def to_spectrograph(dct: dict):
     return Spectrograph(**dct)
 
+
 def to_zemax(dct: dict):
     return Zemax(**dct)
+
 
 def to_parameter(dct: dict):
     return Parameter(**dct)
@@ -37,12 +41,14 @@ def to_parameter(dct: dict):
 def build_config(configuration_file: dict) -> Configuration:
     # Dictionary -> Object of specific Class
     output_obj = to_output(configuration_file["output"])
-    acquisition_obj = to_acquisition(configuration_file["acquisition"])
     calibration_obj = to_calibration(
         configuration_file["calibration"]) if "calibration" in configuration_file else None
     telescope_obj = to_telescope(configuration_file["telescope"])
-    zemax_obj = to_zemax(configuration_file["zemax"]) if "zemax" in configuration_file else None
+    zemax_obj = to_zemax(
+        configuration_file["zemax"]) if "zemax" in configuration_file else None
     spectrograph_obj = to_spectrograph(configuration_file["spectrograph"])
+    acquisition_obj = to_acquisition(
+        configuration_file["acquisition"], spectrograph_obj)
     parameter_obj = to_parameter(configuration_file["simulation"])
 
     # Dictionary -> Dictionary

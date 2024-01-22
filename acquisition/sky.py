@@ -11,6 +11,11 @@ import matplotlib.pyplot as plt
 
 from ..tool import unit_converter
 from ..tool import tools
+'''
+from ..tool import magnitude  # For ETC comparison only
+from ..tool import zp_norm  # For ETC comparison only
+'''
+
 
 transmission_folder = "transmission"
 radiance_folder = "radiance"
@@ -111,6 +116,25 @@ class Radiance:
         else:
             # I Changed before was np.zeros(len(self.wavelength))
             self.flux = None
+    '''
+    # For ETC comparison only
+    def normalize(self, slit_dimension):
+        # Load a csv file with the radiance
+        radiance_file = np.loadtxt(
+            "/Users/andre/Desktop/INAF/CUBES/ETC/Comparison/data/SKY_ESO.dat", delimiter=" ")
+
+        self.wavelength = radiance_file.T[0]
+        self.flux = radiance_file.T[1]  # [photons/cm^2/s/A/asec^2]
+
+        lambda_0, zeropoint = magnitude.get_vega_flux_zeropoints(
+            "U", "PHll")
+
+        self.flux = zp_norm.get_filter_norm(
+            self.wavelength, self.flux, "U", zeropoint, 22.8)  # [photons/cm^2/s/A/asec^2]
+
+        self.flux = self.flux * \
+            slit_dimension[0] * slit_dimension[1]  # [photons/cm^2/s/A]
+    '''
 
 
 class Transimission:
@@ -122,6 +146,15 @@ class Transimission:
             self.wavelength = unit_converter.wavelength(
                 transmission_file.T[0], "nm", "A")  # [nm] -> [A]
             self.transmission = transmission_file.T[1]  # [-]
+            '''
+            # ETC
+            transmission_file = np.loadtxt(
+                "/Users/andre/Desktop/INAF/CUBES/ETC/Comparison/data/TRANS_ATM.dat", delimiter=" ")
+            self.wavelength = transmission_file.T[0]
+            self.transmission = transmission_file.T[1]
+            # END ETC
+            '''
+
         else:
             self.wavelength = np.arange(300, 24000.1, 0.1)
             self.transmission = np.ones(len(self.wavelength))

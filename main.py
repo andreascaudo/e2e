@@ -73,13 +73,19 @@ def run(configuration: Configuration):
     # [-] ,[ph/s/cm2/A]
 
     if len(spectrograph.slices) > 1:
-        sky_slit_y = acquisition.characteristics.slit_size_y / \
+        sky_slit_x = acquisition.characteristics.slit_size_x / \
             len(spectrograph.slices)
     else:
-        sky_slit_y = acquisition.characteristics.slit_size_y
+        sky_slit_x = acquisition.characteristics.slit_size_x
 
     transimission, radiance = acquisition.sky.get_sky(
-        acquisition.characteristics.slit_size_x, sky_slit_y)
+        sky_slit_x, acquisition.characteristics.slit_size_y)
+
+    '''
+    # Only fo ETC comparison
+    radiance.normalize([sky_slit_x, acquisition.characteristics.slit_size_y])
+    '''
+
     if DEBUG:
         plot.generic("Sky transmission", transimission.wavelength,
                      transimission.transmission, ["wavelength [$\AA$]", "[-]"])
@@ -202,13 +208,19 @@ def run(configuration: Configuration):
 
     # Display the final detector image [Binned]
 
-    # Moltilpy for telescope are to obtain [/s]
+    # Moltilpy for telescope are to obtain [ph/s]
     if calibration is None and acquisition.sed.calibration is False:
         M2_obs = 0.03 if spectrograph.name == "CUBES" else 0
         detector_final = detector_recombined_binned * \
             ((telescope.diameter/2) ** 2) * math.pi * (1-M2_obs)
     else:
-        detector_final = detector_recombined_binned
+        if calibration is not None:
+            detector_final = detector_recombined_binned * calibration.area
+        else:
+            detector_final = detector_recombined_binned * \
+                (acquisition.characteristics.slit_area_calibration)  # cm2
+
+        # detector_final = detector_recombined_binned
 
     # Moltiply for time exposure
     detector_final = detector_final * \
@@ -391,11 +403,24 @@ def slice_calculation(order_slice, configuration):
                           23: [[273, 1450], [1204, 1350], [1396, 1355]]
                         }
     '''
+
+    '''
+    #ETC
+    # find index of the wavelength of the features at 3.13 nm or 3.865 or 3.753 nm
+    # CUBES SNR CHECK
+    features_index = np.where(order_wavelength_subpix >= 3.753*10**-7)
+    rng = range(features_index[0][0]-3, features_index[0][0]+4)
+    # rng = range(features_index[0][0], features_index[0][0]+1)
+    '''
+
     # temp_pixel = 1000 if spectrograph.name == "SOXS" else 2955
     # rng = np.array([273, 1204, 1396])*parameter.pixel_oversampling
     # rng = range(2640 * parameter.pixel_oversampling,
     #            4453 * parameter.pixel_oversampling)
     rng = range(0, order_len_wavelength_subpix-1)
+    # rng = range(951*parameter.pixel_oversampling,
+    #            955*parameter.pixel_oversampling)
+    # rng = [1164*parameter.pixel_oversampling]
     print("SEEING: ", acquisition.sky.seeing)
 
     for j in tqdm(rng):
@@ -453,7 +478,8 @@ def slice_calculation(order_slice, configuration):
         if calibration is None:
             if acquisition.sed.calibration:
                 object_slit = np.ones(image_size) * \
-                    object_efficiency[j] / (order_efficiency_subpix * sx[j])
+                    object_efficiency[j] / (order_efficiency_subpix *
+                                            (sx[j]*acquisition.characteristics.slit_size_x))
             else:
                 object_slit = tools.object_slit(
                     object_efficiency[j],
@@ -472,6 +498,9 @@ def slice_calculation(order_slice, configuration):
                 parameter.pixel_oversampling
             )
 
+        # print("Object slit: " + str(np.sum(object_slit)) + " whit image size: " +
+        #      str(image_size))
+
         if TIME:
             print("Ended obj slit in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
@@ -480,7 +509,8 @@ def slice_calculation(order_slice, configuration):
 
         # SKY
         sky_slit = np.ones(image_size) * \
-            sky_efficiency[j] / (order_efficiency_subpix * sx[j])
+            sky_efficiency[j] / (order_efficiency_subpix *
+                                 (sx[j]*acquisition.characteristics.slit_size_x))
 
         if TIME:
             print("Ended sky slit in:")
@@ -560,7 +590,8 @@ def slice_calculation(order_slice, configuration):
         # --- MASK --------------------------------------------------------
         if calibration is None:
             sy_m = order_efficiency_subpix * pixel_oversampling_shift
-            sx_m = sx[j] * pixel_oversampling_shift
+            sx_m = sx[j] * pixel_oversampling_shift * \
+                acquisition.characteristics.slit_size_x
 
             mask = tools.mask_ideal_slit(
                 image_size, sy_m, sx_m, pixel_oversampling_shift)

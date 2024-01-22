@@ -142,6 +142,50 @@ class Lamp(Sed):
         return self.wavelength, self.flux
 
 
+class ThermalRadiation(Sed):
+    def __init__(
+        self,
+        sed_type: str,
+        temperature: float,              # K
+        Fn: float,
+        filter: str,
+    ) -> None:
+        super().__init__(sed_type)
+        self.temperature = temperature
+        self.calibration = True
+        self.Fn = Fn
+        # self.wavelength = np.arange(1000, 10000000, 100)  # A
+        self.wavelength = np.arange(7000, 30001, 1)  # A FILTER length
+        self.filter = filter
+        # self.wavelength = np.arange(1000, 25000, 1)  # Angstrom
+
+    def get_flux(self):
+        try:
+            sed_file = np.loadtxt(self.filter, comments='#',
+                                  delimiter=' ', encoding='utf-8-sig')
+        except Exception as e:
+            print(e)
+
+        self.flux = (2 * constants.h * constants.c ** 2) / ((self.wavelength / 10 ** 10) ** 5 * (
+            np.exp(constants.h * constants.c / (constants.k * self.temperature * (self.wavelength / 10 ** 10))) - 1))  # W / m^2 * m * sr
+
+        # 0: Wavelength [A], 1: Flux [ergs/s/cm^2/A]
+        self.filter = np.interp(self.wavelength, sed_file.T[0], sed_file.T[1])
+        # self.wavelength = sed_file.T[0]
+
+        # J/(s * m^3) or W / m^2 * m
+        self.flux = self.flux * (2 * constants.pi) * (1-np.cos(1/(2*self.Fn)))
+
+        # Apply filter
+        self.flux = self.flux * (self.filter/100)  # %
+
+        self.flux = unit_converter.flux(self.flux*10**-6, "W/m^2/um",
+                                        "photons/cm^2/s/A", unit_converter.wavelength(
+                                            self.wavelength, "A", "um"))
+
+        return self.wavelength, self.flux
+
+
 class Spectrum(Sed):
     def __init__(
         self,

@@ -5,6 +5,7 @@ from .characteristics import Characteristics
 
 class Acquisition:
     def __init__(self,
+                 spectrograph_obj,
                  sed: sd.Sed,
                  characteristics: Characteristics,
                  sky: Sky = None
@@ -15,4 +16,5 @@ class Acquisition:
             self.sky = Sky(**sky)
         else:  # if not sky -> perfect seeing euqals to 1
             self.sky = Sky(-1, -1, -1, 1, active=False)
-        self.characteristics = Characteristics(**characteristics)
+        self.characteristics = Characteristics(
+            spectrograph_obj, **characteristics)
