@@ -16,7 +16,7 @@ from os import path
 
 DEBUG = False
 TIME = False
-PARALLEL = True
+PARALLEL = False
 
 
 def run(configuration: Configuration):
@@ -105,9 +105,10 @@ def run(configuration: Configuration):
         delta_time = time.time()
     # 3th step: Set Sky and Obj Efficiency
     acquisition.sky.set_efficiency(spectrograph.wavematrix,
-                                   spectrograph.telescope_spectrograph_efficiency_fdr)
+                                   spectrograph.telescope_fdr,  spectrograph.instrument_fdr)
+
     acquisition.sed.set_efficiency(acquisition.sky.transmission.transmission_matrix,
-                                   spectrograph.wavematrix, spectrograph.telescope_spectrograph_efficiency_fdr)
+                                   spectrograph.wavematrix, spectrograph.telescope_fdr,  spectrograph.instrument_fdr)
 
     # 4th step: Get Slit Efficiency and Image Quality
     # slit_efficiency_matrix, fwhm_iq_matrix = efficiency.get_slit_efficiency(spectrograph.wavematrix, acquisition.sky.airmass,
@@ -180,8 +181,6 @@ def run(configuration: Configuration):
 
     for t in orders:
         for s in slices:
-            print("ORDER:")
-            print(order_y_subpix_min[t][s])
             if parameter.pixel_oversampling < 10:
                 yy_start = int(order_y_subpix_min[t][s] -
                                (unkown3*spectrograph.psf_map_pixel_number_subpixel)) - 1
@@ -189,8 +188,6 @@ def run(configuration: Configuration):
             else:
                 yy_start = 0
                 yy_end = 310*parameter.pixel_oversampling
-
-            print("Start: ", str(yy_start), "End: ", str(yy_end))
 
             detector_recombined[yy_start:yy_end, :] = detector_recombined[yy_start:yy_end, :] + \
                 spectrograph.detector_subpixel[:, int(spectrograph.subpixel_edge/2):int(
@@ -297,11 +294,10 @@ def slice_calculation(order_slice, configuration):
     # ---------------------------------------------------------------------
     # ### Sub-Pixel scale: x, lambda, y, Sx
     # X
-    order_x_subpix = slice.T[3+SIT] * parameter.pixel_oversampling
-    order_x_subpix_start = math.ceil(
-        slice.T[3+SIT][0] * parameter.pixel_oversampling)
-    order_x_subpix_end = math.ceil(
-        slice.T[3+SIT][-1] * parameter.pixel_oversampling)
+    order_x_subpix = (
+        slice.T[3+SIT] + spectrograph.grating.orders_table_spectral_shift) * parameter.pixel_oversampling
+    order_x_subpix_start = math.ceil(order_x_subpix[0])
+    order_x_subpix_end = math.ceil(order_x_subpix[-1])
     order_x_subpix_new = np.arange(
         order_x_subpix_start, order_x_subpix_end+1, 1)
 
@@ -311,7 +307,8 @@ def slice_calculation(order_slice, configuration):
     delta_lambda_subpix = np.diff(order_wavelength_subpix)
 
     # Y
-    order_y_subpix = slice.T[4+SIT] * parameter.pixel_oversampling
+    order_y_subpix = (slice.T[4+SIT] + spectrograph.grating.orders_table_spatial_shift) * \
+        parameter.pixel_oversampling
     order_y_subpix = tools.interp(
         order_x_subpix, order_y_subpix, order_x_subpix_new, "extrapolate", "cubic")
 
@@ -345,6 +342,7 @@ def slice_calculation(order_slice, configuration):
     order_total_efficiency_object = np.zeros(
         (order_len_wavelength_subpix, 2))
     order_total_efficiency_object.T[0] = order_wavelength_subpix
+
     order_total_efficiency_object.T[1] = tools.interp(
         spectrograph_wavematrix_order_i, acquisition.sed.sed_total_efficincy[i], order_wavelength_subpix, "extrapolate", "cubic")
 
@@ -391,11 +389,19 @@ def slice_calculation(order_slice, configuration):
     order_detector_subpixel = np.zeros(
         (310*parameter.pixel_oversampling, spectrograph.n_pixels_subpixel + spectrograph.subpixel_edge))
 
-    order_y_subpix_min = min(order_y_subpix)
-    unkown = 3 if spectrograph.name == "SOXS" else 5
-    order_y_subpix = order_y_subpix - \
-        (order_y_subpix_min) + 1 + \
-        (unkown * spectrograph.psf_map_pixel_number_subpixel)
+    if parameter.pixel_oversampling < 10:  # AFC otherwise
+        unkown = 3 if spectrograph.name == "SOXS" else 5
+        order_y_subpix_min = min(order_y_subpix)
+        order_y_subpix = order_y_subpix - \
+            (order_y_subpix_min) + 1 + \
+            (unkown * spectrograph.psf_map_pixel_number_subpixel)
+    else:
+        # The value 4649 (from 4719 of order table) or (5319 when order table min is 5389) is hard-coded to ensure consistent subtraction across different AFC frames (SB).
+        # This constant subtraction is crucial for maintaining uniformity across different executions, even though the specific value does not have an intrinsic meaning.
+        # Its primary purpose is to constrain the position of the AFC within a 0 to 310 pixel range,
+        # thereby preserving spatial shifts across multiple simulations (frames).
+        order_y_subpix = order_y_subpix - (4649 * parameter.pixel_oversampling)
+        order_y_subpix_min = min(order_y_subpix)
 
     # ----------------------------------------------------
     '''
@@ -466,6 +472,7 @@ def slice_calculation(order_slice, configuration):
         uknown2 = 6 if spectrograph.name == "SOXS" else 10
         image_size = np.array([uknown2*spectrograph.psf_map_pixel_number_subpixel,
                               int(2*spectrograph.psf_map_pixel_number_subpixel)])
+
         if TIME:
             print("Ended Init in:")
             print("--- %s seconds ---" % (time.time() - subpix_time))
@@ -633,6 +640,9 @@ def slice_calculation(order_slice, configuration):
         # Extract the wave-interp map and normalization
         psf_map_j_norm, psf_box_z = tools.normalize_psf_map(
             psf_map[:, :, j])
+
+        # TO CHECK IF IT IS WORK AS EXPECTED, this is needed for the problem of psf dealing with subpixel grater then 10
+
         #  Initialize the convolution matrix
         v1, v2 = tools.init_conv_matrix(
             parameter.psf_map_pixel_number, spectrograph.dimension_pixel, psf_box_z)
@@ -649,7 +659,7 @@ def slice_calculation(order_slice, configuration):
         # Normalize the PSF map
         psf_interp = psf_interp / psf_interp_sum
 
-        # Resampling - rebinning factor : Num-SubPix of 1um size / Num-SubPix for PPP2
+        # Resampling - rebinning factor : Num-SubPix of 1um size / Num-SubPix for pixel_oversampling
         rebin_factor = (parameter.psf_map_pixel_number * spectrograph.dimension_pixel) / (
             parameter.psf_map_pixel_number * parameter.pixel_oversampling)
 
@@ -677,8 +687,15 @@ def slice_calculation(order_slice, configuration):
         # --- POSITION IMAGE SIMULATION ELEMENT ---------------------------
         ref_x = order_x_subpix[j] + (spectrograph.subpixel_edge/2)
         ref_y = order_y_subpix[j]
+
         ref_y_start = int(ref_y - (detector_conv.shape[0]/2)) - 1
+
         ref_y_end = int(ref_y_start + detector_conv.shape[0])
+
+        if ref_y_start < 0 or ref_y_end > 310 * parameter.pixel_oversampling:
+            print("Start: " + str(ref_y_start) + " End: " + str(ref_y_end)
+                  + " Middle: " + str(ref_y) + " Shape: " + str(detector_conv.shape[0]))
+            raise Exception("Negative value in the y-axis")
 
         ref_x_start = int(
             ref_x - (detector_conv.shape[1]/2)) + int(parameter.pixel_oversampling/2) - 1

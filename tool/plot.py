@@ -15,6 +15,7 @@ def generic(title, wavelength, flux, labels, legend=False):
     if legend:
         plt.legend()
 
+    plt.grid()
     plt.show()
 
 # Plot the image of the detector

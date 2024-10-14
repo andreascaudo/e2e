@@ -39,8 +39,32 @@ class Spectrograph:
         self.name = name
         self.arm = arm
 
+        # Genrate a set of slices based on two cases:
+        # 1. If the user provides an image slicer, then use those slices
+        # 2. If the user does not provide an image slicer, then use one slice per order
+        self.slices = []
+        if image_slicer != None:
+            for i in range(0, image_slicer["n_slices"]):
+                self.slices.append(Slice(i+1, image_slicer["shift_arc"][i]))
+        else:
+            self.slices.append(Slice(1, None))
+
+        self.len_n_slices = len(self.slices)
+
+        ############
+
         grating_type = getattr(grating_obj, grating["type"])
         self.grating = grating_type(**grating)
+
+        if len(self.slices) > 1:
+            # Slice Index Table (SIT), due to the fact that the order table without slice has one column less
+            self.grating.set_SIT(1)
+        else:
+            self.grating.set_SIT(0)
+
+        self.grating.set_wavelength_orders()
+
+        ####
 
         self.telescope_fdr_file = load_fdr(telescope_fdr_file)
         self.instrument_fdr_file = load_fdr(instrument_fdr_file)
@@ -58,6 +82,7 @@ class Spectrograph:
         self.instrument_fdr = np.zeros((self.len_n_orders, self.n_p))
 
         for i in range(0, self.len_n_orders):
+
             self.telescope_fdr[i] = tools.interp(
                 self.telescope_fdr_file.T[0], self.telescope_fdr_file.T[1], self.wavematrix[i], fill_value="extrapolate")
 
@@ -72,22 +97,8 @@ class Spectrograph:
 
         self.wavematrix = unit_converter.wavelength(self.wavematrix, "um", "A")
 
-        self.telescope_spectrograph_efficiency_fdr = self.telescope_fdr * self.instrument_fdr
-
         self.n_pixels = n_pixels
         self.dimension_pixel = dimension_pixel
-
-        # Genrate a set of slices based on two cases:
-        # 1. If the user provides an image slicer, then use those slices
-        # 2. If the user does not provide an image slicer, then use one slice per order
-        self.slices = []
-        if image_slicer != None:
-            for i in range(0, image_slicer["n_slices"]):
-                self.slices.append(Slice(i+1, image_slicer["shift_arc"][i]))
-        else:
-            self.slices.append(Slice(1, None))
-
-        self.len_n_slices = len(self.slices)
 
     def set_subpixels(self, pixel_oversampling, psf_map_pixel_number):
         self.n_pixels_subpixel = self.n_pixels * pixel_oversampling

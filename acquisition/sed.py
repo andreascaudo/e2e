@@ -32,7 +32,8 @@ class Sed:
 
         return self.wavelength, self.flux
 
-    def set_efficiency(self, transmission_matrix, wavematrix, efficiency):
+    def set_efficiency(self, transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency):
+        efficiency = telescope_efficiency * spectrograph_efficiency
         self.wavelength_matrix = wavematrix
         self.sed_total_efficincy = transmission_matrix * efficiency
 
@@ -113,6 +114,10 @@ class Flat(Sed):
 
         return self.wavelength, self.flux
 
+    def set_efficiency(self, transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency):
+        telescope_efficiency = np.ones(len(telescope_efficiency))
+        return super().set_efficiency(transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency)
+
 
 class Lamp(Sed):
     def __init__(
@@ -140,6 +145,10 @@ class Lamp(Sed):
                                         "photons/cm^2/s/A", self.wavelength)
 
         return self.wavelength, self.flux
+
+    def set_efficiency(self, transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency):
+        telescope_efficiency = np.ones(len(telescope_efficiency))
+        return super().set_efficiency(transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency)
 
 
 class ThermalRadiation(Sed):
@@ -194,7 +203,8 @@ class Spectrum(Sed):
         magnitude: float,               # [-]
         magnitude_system: str,          # ["Vega" or "AB"]
         spectrum_file: float,
-        bandpass_normalization: bool = True
+        bandpass_normalization: bool = True,
+        z: float = 0
     ) -> None:
         super().__init__(sed_type)
         self.band = band
@@ -203,6 +213,7 @@ class Spectrum(Sed):
         self.bandpass_normalization = bandpass_normalization
         self.spectrum_file = spectrum_file
         self.calibration = False
+        self.z = z
 
     def get_flux(self):
         try:
@@ -218,5 +229,8 @@ class Spectrum(Sed):
 
         self.flux = unit_converter.flux(self.flux, "ergs/cm^2/s/A",
                                         "photons/cm^2/s/A", self.wavelength)
+
+        if self.z != 0:
+            self.wavelength = self.wavelength * (1 + self.z)
 
         return self.wavelength, self.flux

@@ -17,6 +17,27 @@ class Grating:
         self.eps_angle = eps_angle
         self.n_p = n_p * 3
 
+    def set_SIT(self, SIT):
+        self.SIT = SIT
+
+    def set_wavelength_orders(self):
+        try:
+            self.order_table = np.loadtxt(
+                self.orders_table_file, delimiter=" ", skiprows=1)
+
+            self.sx_wavelegnth_per_order = []
+            self.dx_wavelegnth_per_order = []
+
+            # Create from order table two list containing the wavelength min and max for each order
+            for n_ord in self.n_orders:
+                self.sx_wavelegnth_per_order.append(
+                    self.order_table[self.order_table[:, 0] == n_ord, :][0][2+self.SIT])
+                self.dx_wavelegnth_per_order.append(
+                    self.order_table[self.order_table[:, 0] == n_ord, :][-1][2+self.SIT])
+        except Exception as e:
+            print(e)
+            exit()
+
 
 class Echelle(Grating):
     def __init__(
@@ -32,7 +53,9 @@ class Echelle(Grating):
 
         n_order_start,
         n_order_end,
-        orders_table_file: str
+        orders_table_file: str,
+        orders_table_spectral_shift: float = None,
+        orders_table_spatial_shift: float = None
     ) -> None:
         super().__init__(line_density, blaze_angle, eps_angle, ilg, n_p)
         self.type_name = type
@@ -51,22 +74,9 @@ class Echelle(Grating):
 
         # Load Orders Table file
         self.orders_table_file = orders_table_file
-        try:
-            self.order_table = np.loadtxt(
-                self.orders_table_file, delimiter=" ", skiprows=1)
 
-            self.sx_wavelegnth_per_order = []
-            self.dx_wavelegnth_per_order = []
-
-            # Create from order table two list containing the wavelength min and max for each order
-            for n_ord in self.n_orders:
-                self.sx_wavelegnth_per_order.append(
-                    self.order_table[self.order_table[:, 0] == n_ord, :][0][2])
-                self.dx_wavelegnth_per_order.append(
-                    self.order_table[self.order_table[:, 0] == n_ord, :][-1][2])
-        except Exception as e:
-            print(e)
-            exit()
+        self.orders_table_spectral_shift = orders_table_spectral_shift if orders_table_spectral_shift else 0
+        self.orders_table_spatial_shift = orders_table_spatial_shift if orders_table_spatial_shift else 0
 
     # Different for each grating
 
@@ -109,7 +119,9 @@ class Binary(Grating):
         ilg: float,
         n_p: float,
 
-        orders_table_file: str
+        orders_table_file: str,
+        orders_table_spectral_shift: float = None,
+        orders_table_spatial_shift: float = None
     ) -> None:
         super().__init__(line_density, blaze_angle, eps_angle, ilg, n_p)
         self.type_name = type
@@ -120,21 +132,9 @@ class Binary(Grating):
 
         # Load Orders Table file
         self.orders_table_file = orders_table_file
-        try:
-            self.order_table = np.loadtxt(
-                self.orders_table_file, delimiter=" ", skiprows=1)
 
-            self.sx_wavelegnth_per_order = []
-            self.dx_wavelegnth_per_order = []
-
-            # Create from order table two list containing the wavelength min and max for each order
-            for n_ord in self.n_orders:
-                self.sx_wavelegnth_per_order.append(
-                    self.order_table[self.order_table[:, 0] == n_ord, :][0][3])
-                self.dx_wavelegnth_per_order.append(
-                    self.order_table[self.order_table[:, 0] == n_ord, :][-1][3])
-        except Exception as e:
-            print(e)
+        self.orders_table_spectral_shift = orders_table_spectral_shift if orders_table_spectral_shift else 0
+        self.orders_table_spatial_shift = orders_table_spatial_shift if orders_table_spatial_shift else 0
 
     # Different for each grating
 

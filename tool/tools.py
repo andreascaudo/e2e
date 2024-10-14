@@ -207,6 +207,10 @@ def multi_pinhole():
 def rebin_image(image, factor):
     p = int(factor[0])
     q = int(factor[1])
+
+    if p <= 1 and q <= 1:
+        return image
+
     size_img = image.shape
 
     new_image = np.sum(np.reshape(image, (p, -1), order="F"), axis=0)
@@ -340,16 +344,20 @@ def add_pre_over_scan(detector):
     new_detector[3744:4896, 0:4616] = detector[(3*1152):(4*1152), 0:4616]
     new_detector[3744:4896, 4680:-1] = detector[(3*1152):(4*1152), 4616:-1]
 
-    new_detector[5024:(5024+1152), 0:4616] = detector[(4*1152):(5*1152), 0:4616]
+    new_detector[5024:(5024+1152), 0:4616] = detector[(4*1152)
+                       :(5*1152), 0:4616]
     new_detector[5024:(5024+1152),
                  4680:-1] = detector[(4*1152):(5*1152), 4616:-1]
-    new_detector[6264:(6264+1152), 0:4616] = detector[(5*1152):(6*1152), 0:4616]
+    new_detector[6264:(6264+1152), 0:4616] = detector[(5*1152)
+                       :(6*1152), 0:4616]
     new_detector[6264:(6264+1152),
                  4680:-1] = detector[(5*1152):(6*1152), 4616:-1]
-    new_detector[7504:(7504+1152), 0:4616] = detector[(6*1152):(7*1152), 0:4616]
+    new_detector[7504:(7504+1152), 0:4616] = detector[(6*1152)
+                       :(7*1152), 0:4616]
     new_detector[7504:(7504+1152),
                  4680:-1] = detector[(6*1152):(7*1152), 4616:-1]
-    new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152):(8*1152), 0:4616]
+    new_detector[8744:(8744+1152), 0:4616] = detector[(7*1152)
+                       :(8*1152), 0:4616]
     new_detector[8744:(8744+1152), 4680:-
                  1] = detector[(7*1152):(8*1152), 4616:-1]
 

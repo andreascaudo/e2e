@@ -216,7 +216,8 @@ class Sky:
 
             return self.transmission, self.radiance
 
-    def set_efficiency(self, wavematrix, efficiency):
+    def set_efficiency(self, wavematrix, telescope_efficiency, spectrograph_efficiency):
+        efficiency = telescope_efficiency * spectrograph_efficiency
         self.wavelength_matrix = wavematrix
         size_matrix = self.wavelength_matrix.shape
         self.transmission.transmission_matrix = np.zeros(size_matrix)
