@@ -115,7 +115,7 @@ class Flat(Sed):
         return self.wavelength, self.flux
 
     def set_efficiency(self, transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency):
-        telescope_efficiency = np.ones(len(telescope_efficiency))
+        telescope_efficiency = np.ones(telescope_efficiency.shape)
         return super().set_efficiency(transmission_matrix, wavematrix, telescope_efficiency, spectrograph_efficiency)
 
 
